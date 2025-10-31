@@ -3,6 +3,7 @@ import { AppShell } from "./components/app-shell"
 import { TodayTab } from "./components/today/today-tab"
 import { JournalTab } from "./components/journal/journal-tab"
 import { WeeklyTab } from "./components/weekly/weekly-tab"
+import { MinimalWidget } from "./components/widget/minimal-widget"
 import { Toasts } from "./components/toasts"
 import { LoginScreen } from "./components/auth/login-screen"
 import { ErrorBoundary } from "./components/error-boundary"
@@ -15,6 +16,25 @@ import { checkNudgeTime, hasBeenNudgedToday, markNudged, snoozeNudge } from "./l
 type Tab = "today" | "journal" | "weekly"
 
 export default function App() {
+  // Check if we're in widget mode (from URL hash)
+  const [isWidgetMode, setIsWidgetMode] = useState(false)
+
+  useEffect(() => {
+    // Check URL hash or pathname for widget mode
+    const hash = window.location.hash
+    const pathname = window.location.pathname
+    const isWidget = hash === '#/widget' || hash === '#widget' || pathname === '/widget' || pathname.includes('/widget')
+    setIsWidgetMode(isWidget)
+    
+    // Also listen for hash changes
+    const handleHashChange = () => {
+      const newHash = window.location.hash
+      const newPath = window.location.pathname
+      setIsWidgetMode(newHash === '#/widget' || newHash === '#widget' || newPath === '/widget' || newPath.includes('/widget'))
+    }
+    window.addEventListener('hashchange', handleHashChange)
+    return () => window.removeEventListener('hashchange', handleHashChange)
+  }, [])
   const [activeTab, setActiveTab] = useState<Tab>("today")
   const { user, loading, initialized, initialize } = useAuthStore()
   const { theme } = useThemeStore()
@@ -98,6 +118,21 @@ export default function App() {
     )
   }
 
+  // Widget mode - minimal, actionable widget
+  if (isWidgetMode) {
+    return (
+      <ErrorBoundary>
+        <div className="w-screen h-screen bg-transparent flex items-center justify-center p-4">
+          <div className="w-full max-w-sm">
+            <MinimalWidget />
+          </div>
+        </div>
+        <Toasts isWidget={true} />
+      </ErrorBoundary>
+    )
+  }
+
+  // Full app mode
   if (!user) {
     return <LoginScreen />
   }

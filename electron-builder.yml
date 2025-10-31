@@ -1,0 +1,24 @@
+appId: com.mindfulos.app
+productName: Mindful OS
+directories:
+  output: release
+  buildResources: build
+files:
+  - dist/**/*
+  - package.json
+mac:
+  category: public.app-category.productivity
+  target:
+    - target: default
+      arch:
+        - x64
+        - arm64
+  icon: build/icon.icns
+  entitlements: null
+  entitlementsInherit: null
+win:
+  target: nsis
+linux:
+  target: AppImage
+
+

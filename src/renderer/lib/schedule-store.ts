@@ -52,12 +52,12 @@ export const useScheduleStore = create<ScheduleState>()(
         const today = new Date().toISOString().split("T")[0] // YYYY-MM-DD
         return get().commits.find((c) => c.date === today) || null
       },
-      commitDay: (blocks: TimeBlock[]) => {
-        const today = new Date().toISOString().split("T")[0]
-        const existing = get().commits.find((c) => c.date === today)
+      commitDay: (blocks: TimeBlock[], date?: string) => {
+        const commitDate = date || new Date().toISOString().split("T")[0]
+        const existing = get().commits.find((c) => c.date === commitDate)
         
         const commit: DayCommit = {
-          date: today,
+          date: commitDate,
           blocks,
           committed_at: new Date().toISOString(),
           committed: true,
@@ -65,7 +65,7 @@ export const useScheduleStore = create<ScheduleState>()(
 
         if (existing) {
           set({
-            commits: get().commits.map((c) => (c.date === today ? commit : c)),
+            commits: get().commits.map((c) => (c.date === commitDate ? commit : c)),
           })
         } else {
           set({ commits: [commit, ...get().commits] })

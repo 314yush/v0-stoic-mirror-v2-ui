@@ -25,7 +25,13 @@ export default defineConfig({
   build: {
     outDir: '../../dist',
     emptyOutDir: true,
+    rollupOptions: {
+      input: {
+        main: resolve(__dirname, 'src/renderer/index.html'),
+      },
+    },
   },
+  base: './', // Important for Electron - use relative paths
   server: {
     port: 5173,
     strictPort: true,

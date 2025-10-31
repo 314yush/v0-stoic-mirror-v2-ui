@@ -25,7 +25,7 @@ export function AppShell({ activeTab, onTabChange, children, user }: AppShellPro
 
   return (
     <div className="flex h-screen flex-col bg-background">
-      <header className="flex items-center justify-between border-b border-border px-6 py-3">
+      <header className="flex items-center justify-between border-b border-border px-6 py-3 pt-8">
         <div className="flex items-center gap-6">
           <h1 className="text-lg font-semibold text-foreground">Mindful OS</h1>
           <nav className="flex gap-1">

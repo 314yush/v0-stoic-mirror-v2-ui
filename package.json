@@ -3,13 +3,20 @@
   "version": "0.1.0",
   "private": true,
   "type": "module",
+  "main": "dist/main/main.cjs",
   "scripts": {
     "dev": "vite",
+    "dev:electron": "concurrently \"npm run dev\" \"wait-on http://localhost:5173 && electron .\"",
     "build": "vite build",
+    "build:main": "tsc -p tsconfig.main.json && node -e \"require('fs').renameSync('dist/main/main.js', 'dist/main/main.cjs')\"",
+    "build:preload": "tsc -p tsconfig.preload.json && node -e \"require('fs').renameSync('dist/preload/preload.js', 'dist/preload/preload.cjs')\"",
+    "build:electron": "npm run build && npm run build:main && npm run build:preload",
+    "build:app": "npm run build:electron && electron-builder",
     "preview": "vite preview"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.78.0",
+    "electron-store": "^11.0.2",
     "react": "^18.3.1",
     "react-dom": "^18.3.1",
     "zustand": "^5.0.8"
@@ -19,9 +26,13 @@
     "@types/react-dom": "^18.3.0",
     "@vitejs/plugin-react": "^4.7.0",
     "autoprefixer": "^10.4.20",
+    "concurrently": "^9.2.1",
+    "electron": "^39.0.0",
+    "electron-builder": "^26.0.12",
     "postcss": "^8.4.47",
     "tailwindcss": "^3.4.14",
     "typescript": "^5.6.3",
-    "vite": "^5.4.8"
+    "vite": "^5.4.8",
+    "wait-on": "^9.0.1"
   }
 }

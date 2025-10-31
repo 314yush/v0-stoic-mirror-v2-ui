@@ -8,11 +8,19 @@
  */
 
 export interface ElectronAPI {
-  // Future IPC methods for Electron
-  // saveFile: (path: string, content: string) => Promise<void>
-  // loadFile: (path: string) => Promise<string>
-  // showSaveDialog: (options: any) => Promise<string | null>
-  // getAppPath: () => Promise<string>
+  platform: string
+  storage: {
+    get: (key: string) => Promise<any>
+    set: (key: string, value: any) => Promise<void>
+    remove: (key: string) => Promise<void>
+  }
+  window: {
+    close: () => Promise<void>
+    minimize: () => Promise<void>
+    openMain: () => Promise<void>
+  }
+  onQuickAction: (callback: (action: string) => void) => void
+  removeAllListeners: (channel: string) => void
 }
 
 declare global {

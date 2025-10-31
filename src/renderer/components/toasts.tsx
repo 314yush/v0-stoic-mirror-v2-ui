@@ -38,15 +38,21 @@ export const useToastStore = create<ToastStore>((set) => ({
   removeToast: (id) => set((state) => ({ toasts: state.toasts.filter((t) => t.id !== id) })),
 }))
 
-export function Toasts() {
+export function Toasts({ isWidget = false }: { isWidget?: boolean }) {
   const { toasts, removeToast } = useToastStore()
 
+  // Auto-detect widget mode from URL
+  const isWidgetMode = typeof window !== 'undefined' && 
+    (window.location.hash === '#/widget' || window.location.hash === '#widget' || window.location.pathname.includes('/widget'))
+  
+  const widgetMode = isWidget || isWidgetMode
+
   return (
-    <div className="fixed top-4 right-4 z-50 flex flex-col gap-2 w-80">
+    <div className={`${widgetMode ? 'fixed bottom-2 left-2 right-2 z-50' : 'fixed top-4 right-4 z-50'} flex flex-col gap-2 ${widgetMode ? 'w-auto' : 'w-80'}`}>
       {toasts.map((toast) => (
         <div
           key={toast.id}
-          className={`px-4 py-3 rounded-lg shadow-lg border animate-in slide-in-from-right ${
+          className={`${widgetMode ? 'px-2 py-1.5 text-xs' : 'px-4 py-3'} rounded-lg shadow-lg border animate-in slide-in-from-right ${
             toast.type === "error"
               ? "bg-destructive/10 border-destructive text-destructive"
               : toast.type === "info"
@@ -55,17 +61,17 @@ export function Toasts() {
           }`}
         >
           <div className="flex items-center justify-between gap-2">
-            <p className="text-sm font-medium">{toast.message}</p>
-            <div className="flex items-center gap-2">
+            <p className={`${widgetMode ? 'text-xs' : 'text-sm'} font-medium truncate ${widgetMode ? 'max-w-[200px]' : ''}`}>{toast.message}</p>
+            <div className="flex items-center gap-1 shrink-0">
               {toast.showSnooze && toast.onSnooze && (
                 <button
                   onClick={() => {
                     toast.onSnooze?.()
                     removeToast(toast.id)
                   }}
-                  className="px-2 py-1 text-xs bg-secondary text-foreground rounded hover:bg-secondary/80 transition-colors"
+                  className={`${widgetMode ? 'px-1.5 py-0.5 text-[10px]' : 'px-2 py-1 text-xs'} bg-secondary text-foreground rounded hover:bg-secondary/80 transition-colors`}
                 >
-                  Snooze 20m
+                  {widgetMode ? '20m' : 'Snooze 20m'}
                 </button>
               )}
               <button onClick={() => removeToast(toast.id)} className="text-muted-foreground hover:text-foreground">

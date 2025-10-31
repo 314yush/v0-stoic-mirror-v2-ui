@@ -13,7 +13,7 @@ interface DayTimelineProps {
   onAddBlock: (block: Omit<TimeBlock, "id">) => void
 }
 
-const HOURS = Array.from({ length: 18 }, (_, i) => i + 5) // 5am to 11pm
+const HOURS = Array.from({ length: 24 }, (_, i) => i) // 12am to 11pm (all 24 hours)
 const PIXELS_PER_HOUR = 60
 
 function timeToMinutes(time: string): number {
@@ -282,13 +282,9 @@ export function DayTimeline({ blocks, onUpdateBlock, onDeleteBlock, onAddBlock }
     const currentHour = now.getHours()
     const currentMinute = now.getMinutes()
     
-    // Check if current time is within visible range (5am to 11pm)
-    if (currentHour < 5 || currentHour >= 23) {
-      return null
-    }
-    
+    // All hours are now visible (12am to 11pm)
     // Find which hour row this time falls in
-    const hourIndex = currentHour - 5
+    const hourIndex = currentHour // Hour index is now 0-23 directly
     const minutesInHour = currentMinute
     const topOffset = (minutesInHour / 60) * PIXELS_PER_HOUR
     
@@ -323,7 +319,9 @@ export function DayTimeline({ blocks, onUpdateBlock, onDeleteBlock, onAddBlock }
 
             return (
               <div key={hour} data-hour={hour} className="flex items-start gap-3 min-h-[60px]">
-                <div className="w-16 text-sm text-muted-foreground pt-1 shrink-0">{hour.toString().padStart(2, "0")}:00</div>
+                <div className="w-16 text-sm text-muted-foreground pt-1 shrink-0">
+                  {hour === 0 ? "12am" : hour < 12 ? `${hour}am` : hour === 12 ? "12pm" : `${hour - 12}pm`}
+                </div>
                 <div
                   className="flex-1 relative cursor-crosshair overflow-visible"
                   onMouseDown={(e) => handleMouseDownOnSlot(e, hour)}
@@ -343,8 +341,8 @@ export function DayTimeline({ blocks, onUpdateBlock, onDeleteBlock, onAddBlock }
                           top: `${currentTimePos.topOffset}px`,
                         }}
                       >
-                        <div className="absolute left-0 right-0 h-0.5 bg-red-500" />
-                        <div className="absolute left-0 top-1/2 -translate-y-1/2 w-2 h-2 bg-red-500 rounded-full -ml-1" />
+                        <div className="absolute left-0 right-0 h-1 bg-red-500" />
+                        <div className="absolute left-0 top-1/2 -translate-y-1/2 w-3 h-3 bg-red-500 rounded-full -ml-1.5" />
                       </div>
                     )}
                   </div>

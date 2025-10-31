@@ -24,13 +24,17 @@ const WEEKEND_PRESET: TimeBlock[] = [
 ]
 
 export function TodayTab() {
-  const { getTodayCommit, commitDay: saveCommit, commits } = useScheduleStore()
+  const { getTodayCommit, getCommitByDate, commitDay: saveCommit, commits } = useScheduleStore()
+  const [viewingDate, setViewingDate] = useState(new Date()) // Current date being viewed
+  const viewingDateStr = viewingDate.toISOString().split('T')[0] // YYYY-MM-DD
+  const viewingCommit = getCommitByDate(viewingDateStr)
   const todayCommit = getTodayCommit()
+  const isToday = viewingDateStr === new Date().toISOString().split('T')[0]
   
-  const [blocks, setBlocks] = useState<TimeBlock[]>(todayCommit?.blocks || [])
-  const [committed, setCommitted] = useState(todayCommit?.committed || false)
+  const [blocks, setBlocks] = useState<TimeBlock[]>(viewingCommit?.blocks || [])
+  const [committed, setCommitted] = useState(viewingCommit?.committed || false)
   const [commitTime, setCommitTime] = useState<string | null>(
-    todayCommit?.committed_at ? new Date(todayCommit.committed_at).toLocaleTimeString() : null
+    viewingCommit?.committed_at ? new Date(viewingCommit.committed_at).toLocaleTimeString() : null
   )
   const [showQuickAdd, setShowQuickAdd] = useState(false)
   const [showRoutineSelector, setShowRoutineSelector] = useState(false)
@@ -38,10 +42,19 @@ export function TodayTab() {
   const { addEntry } = useJournalStore()
   const [showQuickJournal, setShowQuickJournal] = useState(false)
   const [quickJournalText, setQuickJournalText] = useState("")
+  const [currentTime, setCurrentTime] = useState(new Date())
   
-  // Load today's commit on mount and sync when store updates (including completion changes)
+  // Update current time every minute
   useEffect(() => {
-    const currentCommit = getTodayCommit()
+    const interval = setInterval(() => {
+      setCurrentTime(new Date())
+    }, 60000)
+    return () => clearInterval(interval)
+  }, [])
+
+  // Load commit for viewing date on mount and when viewing date or store updates
+  useEffect(() => {
+    const currentCommit = getCommitByDate(viewingDateStr)
     if (currentCommit && currentCommit.blocks.length > 0) {
       // Only update if the commit actually changed (e.g., completion status updated)
       const blocksChanged = JSON.stringify(blocks) !== JSON.stringify(currentCommit.blocks)
@@ -60,7 +73,15 @@ export function TodayTab() {
       setCommitted(false)
       setCommitTime(null)
     }
-  }, [commits, getTodayCommit]) // Re-run when commits array changes
+  }, [commits, viewingDateStr, getCommitByDate]) // Re-run when commits array or viewing date changes
+
+  // Reset blocks when switching dates
+  useEffect(() => {
+    const commit = getCommitByDate(viewingDateStr)
+    setBlocks(commit?.blocks || [])
+    setCommitted(commit?.committed || false)
+    setCommitTime(commit?.committed_at ? new Date(commit.committed_at).toLocaleTimeString() : null)
+  }, [viewingDateStr, getCommitByDate])
 
   const handleUseRoutine = (preset: "weekday" | "weekend") => {
     setBlocks(preset === "weekday" ? [...WEEKDAY_PRESET] : [...WEEKEND_PRESET])
@@ -85,10 +106,30 @@ export function TodayTab() {
       addToast("Add some blocks before committing", "error")
       return
     }
-    saveCommit(blocks)
+    saveCommit(blocks, viewingDateStr)
     setCommitted(true)
     setCommitTime(new Date().toLocaleTimeString())
     addToast("Day committed! Stay accountable.")
+  }
+  
+  const handleViewNextDay = () => {
+    const nextDay = new Date(viewingDate)
+    nextDay.setDate(nextDay.getDate() + 1)
+    setViewingDate(nextDay)
+  }
+  
+  const handleViewToday = () => {
+    setViewingDate(new Date())
+  }
+  
+  const formatDateDisplay = (date: Date): string => {
+    const days = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday']
+    const months = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December']
+    return `${days[date.getDay()]}, ${months[date.getMonth()]} ${date.getDate()}`
+  }
+  
+  const formatTimeDisplay = (date: Date): string => {
+    return date.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: true })
   }
 
   const handleAddBlock = (block: Omit<TimeBlock, "id">) => {
@@ -124,9 +165,26 @@ export function TodayTab() {
       <div className="border-b border-border px-6 py-4">
         <div className="flex items-center justify-between mb-4">
           <div>
-            <h2 className="text-xl font-semibold text-foreground">Today's Schedule</h2>
+            <div className="flex items-center gap-4 mb-2">
+              <h2 className="text-xl font-semibold text-foreground">
+                {isToday ? "Today's Schedule" : formatDateDisplay(viewingDate)}
+              </h2>
+              {isToday && (
+                <span className="text-sm text-muted-foreground">
+                  {formatTimeDisplay(currentTime)}
+                </span>
+              )}
+              {!isToday && (
+                <button
+                  onClick={handleViewToday}
+                  className="text-xs text-primary hover:text-primary/80 transition-colors"
+                >
+                  View Today →
+                </button>
+              )}
+            </div>
             {blocks.length > 0 && (
-              <p className="text-xs text-muted-foreground mt-1">
+              <p className="text-xs text-muted-foreground">
                 Total: {(() => {
                   const totalMinutes = blocks.reduce((sum, block) => {
                     const start = Number.parseInt(block.start.split(":")[0]) * 60 + Number.parseInt(block.start.split(":")[1])
@@ -147,6 +205,14 @@ export function TodayTab() {
             >
               Add Journal
             </button>
+            {isToday && (
+              <button
+                onClick={handleViewNextDay}
+                className="px-3 py-1.5 text-sm text-muted-foreground hover:text-foreground transition-colors"
+              >
+                Next Day →
+              </button>
+            )}
             <button
               onClick={handleUseYesterday}
               className="px-3 py-1.5 text-sm text-muted-foreground hover:text-foreground transition-colors"
