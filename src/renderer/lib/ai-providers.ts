@@ -37,6 +37,7 @@ interface AIProviderInterface {
   generateSummary(conversation: string): Promise<string>
   extractTags(conversation: string): Promise<string[]>
   suggestMood(conversation: string): Promise<string>
+  generateTitle(content: string): Promise<string>
 }
 
 /**
@@ -120,6 +121,19 @@ Mood:`
     const response = await this.chat([{ role: "user", content: prompt }])
     const mood = response.content.trim().match(/[😌🙂😐😣😡]/)?.[0] || "😐"
     return mood
+  }
+
+  async generateTitle(content: string): Promise<string> {
+    const prompt = `Generate a short, descriptive title (3-7 words) for this journal entry. Return only the title, no quotes or extra text:
+
+${content}
+
+Title:`
+
+    const response = await this.chat([{ role: "user", content: prompt }])
+    // Clean up response - remove quotes, newlines, and extra whitespace
+    const title = response.content.trim().replace(/^["']|["']$/g, '').replace(/\n/g, ' ').trim()
+    return title || "Untitled Entry"
   }
 }
 
@@ -250,6 +264,18 @@ class GeminiProvider implements AIProviderInterface {
     ])
     const mood = response.content.trim().match(/[😌🙂😐😣😡]/)?.[0] || "😐"
     return mood
+  }
+
+  async generateTitle(content: string): Promise<string> {
+    const response = await this.chat([
+      {
+        role: "user",
+        content: `Generate a short, descriptive title (3-7 words) for this journal entry. Return only the title, no quotes or extra text:\n\n${content}`,
+      },
+    ])
+    // Clean up response - remove quotes, newlines, and extra whitespace
+    const title = response.content.trim().replace(/^["']|["']$/g, '').replace(/\n/g, ' ').trim()
+    return title || "Untitled Entry"
   }
 }
 

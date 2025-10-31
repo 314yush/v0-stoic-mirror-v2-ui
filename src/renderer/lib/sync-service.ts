@@ -1,6 +1,7 @@
 import { supabase, isSupabaseConfigured } from "./supabase"
 import type { JournalEntry } from "./journal-store"
 import type { DayCommit, TimeBlock } from "./schedule-store"
+import type { Task } from "./tasks-store"
 import { storage } from "./storage"
 
 /**
@@ -10,7 +11,7 @@ import { storage } from "./storage"
  */
 
 interface SyncQueue {
-  type: "journal_insert" | "journal_update" | "journal_delete" | "schedule_commit" | "schedule_delete"
+  type: "journal_insert" | "journal_update" | "journal_delete" | "schedule_commit" | "schedule_delete" | "task_insert" | "task_update" | "task_delete"
   data: any
   timestamp: number
   id: string
@@ -131,6 +132,7 @@ export async function syncJournalEntry(entry: JournalEntry, action: "insert" | "
       const { error } = await supabase.from("journal_entries").upsert({
         id: entry.id,
         user_id: user.id,
+        title: entry.title || null,
         content: entry.content || "",
         mood: entry.mood || null,
         tags: tagsArray.length > 0 ? tagsArray : [], // Empty array instead of undefined
@@ -215,6 +217,55 @@ export async function syncScheduleCommit(commit: DayCommit, action: "insert" | "
 }
 
 /**
+ * Sync task to Supabase
+ */
+export async function syncTask(task: Task, action: "insert" | "update" | "delete"): Promise<void> {
+  if (!isSupabaseConfigured()) {
+    // Queue for later sync
+    queueSync({ type: `task_${action}` as any, data: task })
+    return
+  }
+
+  try {
+    const {
+      data: { user },
+    } = await supabase.auth.getUser()
+    if (!user) {
+      queueSync({ type: `task_${action}` as any, data: task })
+      return
+    }
+
+    if (action === "insert" || action === "update") {
+      const { error } = await supabase.from("tasks").upsert({
+        id: task.id,
+        user_id: user.id,
+        text: task.text || "",
+        completed: task.completed ?? false,
+        created_at: task.created_at,
+        updated_at: new Date().toISOString(),
+      })
+
+      if (error) throw error
+    } else if (action === "delete") {
+      const { error } = await supabase.from("tasks").delete().eq("id", task.id).eq("user_id", user.id)
+
+      if (error) throw error
+    }
+  } catch (error) {
+    console.error("Sync error:", error)
+    
+    // Check if error is permanent (data format issue) vs transient (network)
+    const isPermanentError = error instanceof Error && 
+      (error.message.includes("invalid") || error.message.includes("constraint"))
+    
+    if (!isPermanentError) {
+      // Only queue transient errors for retry
+      queueSync({ type: `task_${action}` as any, data: task })
+    }
+  }
+}
+
+/**
  * Process sync queue (runs when online)
  */
 export async function processSyncQueue(): Promise<void> {
@@ -247,6 +298,10 @@ export async function processSyncQueue(): Promise<void> {
         await syncScheduleCommit(item.data)
       } else if (item.type === "schedule_delete") {
         await syncScheduleCommit(item.data, "delete")
+      } else if (item.type === "task_insert" || item.type === "task_update") {
+        await syncTask(item.data, item.type === "task_insert" ? "insert" : "update")
+      } else if (item.type === "task_delete") {
+        await syncTask(item.data, "delete")
       }
 
       // Success - remove from queue
@@ -278,9 +333,10 @@ export async function processSyncQueue(): Promise<void> {
 export async function pullFromSupabase(): Promise<{
   journalEntries: JournalEntry[]
   scheduleCommits: DayCommit[]
+  tasks: Task[]
 }> {
   if (!isSupabaseConfigured()) {
-    return { journalEntries: [], scheduleCommits: [] }
+    return { journalEntries: [], scheduleCommits: [], tasks: [] }
   }
 
   try {
@@ -288,7 +344,7 @@ export async function pullFromSupabase(): Promise<{
       data: { user },
     } = await supabase.auth.getUser()
     if (!user) {
-      return { journalEntries: [], scheduleCommits: [] }
+      return { journalEntries: [], scheduleCommits: [], tasks: [] }
     }
 
     // Pull journal entries
@@ -299,6 +355,15 @@ export async function pullFromSupabase(): Promise<{
       .order("created_at", { ascending: false })
 
     if (journalError) throw journalError
+
+    // Pull tasks
+    const { data: tasksData, error: tasksError } = await supabase
+      .from("tasks")
+      .select("*")
+      .eq("user_id", user.id)
+      .order("created_at", { ascending: false })
+
+    if (tasksError) throw tasksError
 
     // Pull schedule commits
     const { data: scheduleData, error: scheduleError } = await supabase
@@ -317,13 +382,22 @@ export async function pullFromSupabase(): Promise<{
       committed: item.committed ?? true,
     }))
 
+    // Convert tasks data to Task format
+    const tasks: Task[] = (tasksData || []).map((item: any) => ({
+      id: item.id,
+      text: item.text,
+      completed: item.completed ?? false,
+      created_at: item.created_at,
+    }))
+
     return {
       journalEntries: (journalData || []) as JournalEntry[],
       scheduleCommits,
+      tasks,
     }
   } catch (error) {
     console.error("Pull error:", error)
-    return { journalEntries: [], scheduleCommits: [] }
+    return { journalEntries: [], scheduleCommits: [], tasks: [] }
   }
 }
 

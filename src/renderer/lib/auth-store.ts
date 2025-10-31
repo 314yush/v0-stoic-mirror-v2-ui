@@ -6,6 +6,7 @@ import type { User } from "@supabase/supabase-js"
 import { startBackgroundSync, stopBackgroundSync, pullFromSupabase } from "./sync-service"
 import { useJournalStore } from "./journal-store"
 import { useScheduleStore } from "./schedule-store"
+import { useTasksStore } from "./tasks-store"
 
 interface AuthState {
   user: User | null
@@ -86,10 +87,11 @@ export const useAuthStore = create<AuthState>()(
         set({ user: null })
       },
       pullAndMergeData: async () => {
-        const { journalEntries, scheduleCommits } = await pullFromSupabase()
+        const { journalEntries, scheduleCommits, tasks } = await pullFromSupabase()
         // Merge with local data (prefer local for conflicts, then Supabase)
         const journalStore = useJournalStore.getState()
         const scheduleStore = useScheduleStore.getState()
+        const tasksStore = useTasksStore.getState()
         
         // Merge journal entries (local takes precedence for same ID)
         const localJournalIds = new Set(journalStore.entries.map((e) => e.id))
@@ -100,6 +102,11 @@ export const useAuthStore = create<AuthState>()(
         const localScheduleDates = new Set(scheduleStore.commits.map((c) => c.date))
         const newSchedules = scheduleCommits.filter((c) => !localScheduleDates.has(c.date))
         scheduleStore.setCommits([...scheduleStore.commits, ...newSchedules])
+        
+        // Merge tasks (local takes precedence for same ID)
+        const localTaskIds = new Set(tasksStore.tasks.map((t) => t.id))
+        const newTasks = tasks.filter((t) => !localTaskIds.has(t.id))
+        tasksStore.setTasks([...tasksStore.tasks, ...newTasks])
       },
       initialize: async () => {
         if (get().initialized) return

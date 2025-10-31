@@ -1,7 +1,12 @@
 import { useScheduleStore, type DayCommit } from '../../lib/schedule-store'
 import { useJournalStore } from '../../lib/journal-store'
+import { useTasksStore } from '../../lib/tasks-store'
 import { useToastStore } from '../toasts'
+import { useSettingsStore } from '../../lib/settings-store'
+import { getAIProvider, getAIProviderWithFallback, type AIConfig } from '../../lib/ai-providers'
 import { useState, useEffect, useMemo } from 'react'
+
+type WidgetTab = 'schedule' | 'tasks' | 'journal'
 
 // Calculate overall streak from commits
 function calculateOverallStreak(commits: DayCommit[]): number {
@@ -41,8 +46,11 @@ function calculateOverallStreak(commits: DayCommit[]): number {
 export function MinimalWidget() {
   const { getTodayCommit, updateBlockCompletion, commits } = useScheduleStore()
   const { addEntry } = useJournalStore()
+  const { tasks, addTask, toggleTask } = useTasksStore()
   const { addToast } = useToastStore()
+  const [activeTab, setActiveTab] = useState<WidgetTab>('schedule')
   const [quickJournal, setQuickJournal] = useState('')
+  const [quickTask, setQuickTask] = useState('')
   const [currentTime, setCurrentTime] = useState(new Date())
 
   // Update current time every minute
@@ -87,6 +95,20 @@ export function MinimalWidget() {
   // Calculate streak from real data
   const streak = useMemo(() => calculateOverallStreak(commits), [commits])
 
+  // Task stats
+  const remainingTasks = tasks.filter((t) => !t.completed).length
+  const totalTasks = tasks.length
+  const completedTasks = tasks.filter((t) => t.completed).length
+  const taskCompletion = totalTasks > 0 ? Math.round((completedTasks / totalTasks) * 100) : 0
+
+  // Get next 3 incomplete tasks (newest first)
+  const nextIncompleteTasks = useMemo(() => {
+    return tasks
+      .filter((t) => !t.completed)
+      .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())
+      .slice(0, 3)
+  }, [tasks])
+
   const calculateTimeRemaining = (endTime: string): string => {
     const [endH, endM] = endTime.split(':').map(Number)
     const now = new Date()
@@ -113,15 +135,81 @@ export function MinimalWidget() {
     }
   }
 
-  const handleQuickJournal = () => {
-    if (quickJournal.trim()) {
-      addEntry({
-        content: quickJournal,
-        tags: [],
-        is_sensitive: false,
-        visibility: 'private',
+  const handleQuickTask = () => {
+    if (!quickTask.trim()) return
+    
+    addTask({
+      text: quickTask.trim(),
+      completed: false,
+    })
+    setQuickTask('')
+    addToast('Task added', 'success')
+  }
+
+  const handleQuickJournal = async () => {
+    if (!quickJournal.trim()) return
+
+    const journalText = quickJournal.trim()
+    setQuickJournal('') // Clear input immediately
+    
+    // Save entry immediately with placeholder values
+    const entry = addEntry({
+      content: journalText,
+      tags: [],
+      is_sensitive: false,
+      visibility: 'private',
+    })
+
+    // Generate title and mood using AI in the background
+    try {
+      const { settings } = useSettingsStore.getState()
+      const getAIConfig = (): AIConfig => {
+        if (settings.aiProvider === "ollama") {
+          return {
+            provider: "ollama",
+            ollamaUrl: settings.ollamaUrl,
+            ollamaModel: settings.ollamaModel,
+          }
+        } else {
+          return {
+            provider: "gemini",
+            apiKey: settings.geminiApiKey || import.meta.env.VITE_GEMINI_API_KEY || "",
+            model: "gemini-2.5-flash",
+          }
+        }
+      }
+
+      const fallbackConfig: AIConfig = {
+        provider: "gemini",
+        apiKey: settings.geminiApiKey || import.meta.env.VITE_GEMINI_API_KEY || "",
+        model: "gemini-2.5-flash",
+      }
+
+      let provider
+      const config = getAIConfig()
+      if (config.provider === "ollama") {
+        provider = await getAIProviderWithFallback(config, fallbackConfig)
+      } else {
+        provider = getAIProvider(config)
+      }
+
+      // Generate title and mood in parallel
+      const [title, mood] = await Promise.all([
+        provider.generateTitle(journalText),
+        provider.suggestMood(journalText),
+      ])
+
+      // Update entry with AI-generated title and mood
+      const { updateEntry } = useJournalStore.getState()
+      updateEntry(entry.id, {
+        title,
+        mood: mood as any,
       })
-      setQuickJournal('')
+
+      addToast('Journal entry saved with AI title & mood', 'success')
+    } catch (error) {
+      // If AI generation fails, entry is still saved, just without title/mood
+      console.error('Failed to generate title/mood:', error)
       addToast('Journal entry saved', 'success')
     }
   }
@@ -142,7 +230,7 @@ export function MinimalWidget() {
   return (
     <div className="w-full h-full bg-background/95 backdrop-blur-lg rounded-lg border border-border shadow-xl p-4 text-foreground flex flex-col">
       {/* Header */}
-      <div className="flex items-center justify-between mb-4">
+      <div className="flex items-center justify-between mb-3">
         <h2 className="text-lg font-semibold">⚡ Mindful OS</h2>
         <button
           onClick={handleClose}
@@ -153,84 +241,203 @@ export function MinimalWidget() {
         </button>
       </div>
 
-      {/* Current Block */}
-      {activeBlock ? (
-        <div className="mb-4 p-3 bg-primary/10 border border-primary/30 rounded-lg">
-          <div className="flex items-center justify-between mb-2">
-            <span className="font-medium text-sm">🎯 {activeBlock.identity}</span>
-            <span className="text-xs text-muted-foreground">
-              {activeBlock.start} - {activeBlock.end}
-            </span>
-          </div>
-          <div className="text-xs text-muted-foreground mb-3">
-            ⏱️ {calculateTimeRemaining(activeBlock.end)} remaining
-          </div>
-          <button
-            onClick={handleMarkComplete}
-            disabled={activeBlock.completed === true}
-            className="w-full py-2 text-xs font-medium bg-primary text-primary-foreground rounded-md hover:bg-primary/90 disabled:opacity-50 transition-colors"
-          >
-            {activeBlock.completed ? '✓ Completed' : 'Mark Complete'}
-          </button>
-        </div>
-      ) : (
-        <div className="mb-4 p-3 bg-secondary/50 rounded-lg text-center text-sm text-muted-foreground">
-          No active block
-        </div>
-      )}
-
-      {/* Quick Journal */}
-      <div className="mb-4">
-        <textarea
-          value={quickJournal}
-          onChange={(e) => setQuickJournal(e.target.value)}
-          placeholder="Quick journal entry..."
-          rows={2}
-          className="w-full p-2 bg-secondary border border-border rounded-md text-sm mb-2 resize-none text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary"
-          onKeyDown={(e) => {
-            if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) {
-              e.preventDefault()
-              handleQuickJournal()
-            }
-          }}
-        />
+      {/* Tabs */}
+      <div className="flex gap-1 mb-4 border-b border-border">
         <button
-          onClick={handleQuickJournal}
-          disabled={!quickJournal.trim()}
-          className="w-full py-2 text-xs font-medium bg-secondary text-foreground rounded-md hover:bg-secondary/80 disabled:opacity-50 transition-colors"
+          onClick={() => setActiveTab('schedule')}
+          className={`flex-1 py-2 text-xs font-medium transition-colors border-b-2 ${
+            activeTab === 'schedule'
+              ? 'border-primary text-primary'
+              : 'border-transparent text-muted-foreground hover:text-foreground'
+          }`}
         >
-          📝 Save Journal
+          Schedule
+        </button>
+        <button
+          onClick={() => setActiveTab('tasks')}
+          className={`flex-1 py-2 text-xs font-medium transition-colors border-b-2 ${
+            activeTab === 'tasks'
+              ? 'border-primary text-primary'
+              : 'border-transparent text-muted-foreground hover:text-foreground'
+          }`}
+        >
+          Tasks {remainingTasks > 0 && `(${remainingTasks})`}
+        </button>
+        <button
+          onClick={() => setActiveTab('journal')}
+          className={`flex-1 py-2 text-xs font-medium transition-colors border-b-2 ${
+            activeTab === 'journal'
+              ? 'border-primary text-primary'
+              : 'border-transparent text-muted-foreground hover:text-foreground'
+          }`}
+        >
+          Journal
         </button>
       </div>
 
-      {/* Stats */}
-      <div className="mb-4 p-3 bg-secondary/30 rounded-lg">
-        <div className="flex items-center justify-between mb-2">
-          <span className="text-xs text-muted-foreground">Progress</span>
-          <span className="text-xs font-medium">{adherence}%</span>
-        </div>
-        <div className="w-full bg-secondary rounded-full h-2 mb-2">
-          <div
-            className="bg-primary h-2 rounded-full transition-all"
-            style={{ width: `${adherence}%` }}
-          />
-        </div>
-        <div className="text-xs text-muted-foreground">
-          🔥 {streak} day streak
-        </div>
-      </div>
+      {/* Tab Content */}
+      <div className="flex-1 overflow-auto">
+        {activeTab === 'schedule' && (
+          <div className="space-y-4">
+            {/* Current Block */}
+            {activeBlock ? (
+              <div className="p-3 bg-primary/10 border border-primary/30 rounded-lg">
+                <div className="flex items-center justify-between mb-2">
+                  <span className="font-medium text-sm">🎯 {activeBlock.identity}</span>
+                  <span className="text-xs text-muted-foreground">
+                    {activeBlock.start} - {activeBlock.end}
+                  </span>
+                </div>
+                <div className="text-xs text-muted-foreground mb-3">
+                  ⏱️ {calculateTimeRemaining(activeBlock.end)} remaining
+                </div>
+                <button
+                  onClick={handleMarkComplete}
+                  disabled={activeBlock.completed === true}
+                  className="w-full py-2 text-xs font-medium bg-primary text-primary-foreground rounded-md hover:bg-primary/90 disabled:opacity-50 transition-colors"
+                >
+                  {activeBlock.completed ? '✓ Completed' : 'Mark Complete'}
+                </button>
+              </div>
+            ) : (
+              <div className="p-3 bg-secondary/50 rounded-lg text-center text-sm text-muted-foreground">
+                No active block
+              </div>
+            )}
 
-      {/* Next Block */}
-      {nextBlock && (
-        <div className="text-xs text-muted-foreground mb-4">
-          Next: {nextBlock.identity} at {nextBlock.start}
-        </div>
-      )}
+            {/* Stats */}
+            <div className="p-3 bg-secondary/30 rounded-lg">
+              <div className="flex items-center justify-between mb-2">
+                <span className="text-xs text-muted-foreground">Progress</span>
+                <span className="text-xs font-medium">{adherence}%</span>
+              </div>
+              <div className="w-full bg-secondary rounded-full h-2 mb-2">
+                <div
+                  className="bg-primary h-2 rounded-full transition-all"
+                  style={{ width: `${adherence}%` }}
+                />
+              </div>
+              <div className="text-xs text-muted-foreground">
+                🔥 {streak} day streak
+              </div>
+            </div>
+
+            {/* Next Block */}
+            {nextBlock && (
+              <div className="text-xs text-muted-foreground">
+                Next: {nextBlock.identity} at {nextBlock.start}
+              </div>
+            )}
+          </div>
+        )}
+
+        {activeTab === 'tasks' && (
+          <div className="space-y-4">
+            {/* Task Stats */}
+            {totalTasks > 0 && (
+              <div className="p-3 bg-secondary/30 rounded-lg">
+                <div className="flex items-center justify-between mb-2">
+                  <span className="text-xs text-muted-foreground">Tasks</span>
+                  <span className="text-xs font-medium">
+                    {remainingTasks} remaining
+                  </span>
+                </div>
+                <div className="w-full bg-secondary rounded-full h-1.5 mb-2">
+                  <div
+                    className="bg-primary h-1.5 rounded-full transition-all"
+                    style={{ width: `${taskCompletion}%` }}
+                  />
+                </div>
+              </div>
+            )}
+
+            {/* Quick Add Task */}
+            <div>
+              <input
+                type="text"
+                value={quickTask}
+                onChange={(e) => setQuickTask(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter') {
+                    e.preventDefault()
+                    handleQuickTask()
+                  }
+                }}
+                placeholder="Add a task..."
+                className="w-full p-2 bg-secondary border border-border rounded-md text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary"
+              />
+            </div>
+
+            {/* Task List */}
+            {nextIncompleteTasks.length > 0 ? (
+              <div className="space-y-2">
+                {nextIncompleteTasks.map((task) => (
+                  <div
+                    key={task.id}
+                    className="flex items-center gap-2 p-2 bg-card border border-border rounded-lg hover:border-primary/50 transition-colors"
+                  >
+                    <button
+                      onClick={() => toggleTask(task.id)}
+                      className={`w-4 h-4 rounded border-2 transition-colors flex items-center justify-center shrink-0 ${
+                        task.completed
+                          ? 'bg-primary border-primary text-primary-foreground'
+                          : 'border-border hover:border-primary'
+                      }`}
+                      aria-label={task.completed ? "Mark incomplete" : "Mark complete"}
+                    >
+                      {task.completed && '✓'}
+                    </button>
+                    <span className={`flex-1 text-sm ${
+                      task.completed ? 'line-through text-muted-foreground' : 'text-foreground'
+                    }`}>
+                      {task.text}
+                    </span>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <div className="text-center py-8 text-sm text-muted-foreground">
+                {totalTasks === 0 ? 'No tasks yet. Add one above!' : 'All tasks completed! 🎉'}
+              </div>
+            )}
+          </div>
+        )}
+
+        {activeTab === 'journal' && (
+          <div className="space-y-4">
+            <div>
+              <textarea
+                value={quickJournal}
+                onChange={(e) => setQuickJournal(e.target.value)}
+                placeholder="Quick journal entry..."
+                rows={4}
+                className="w-full p-2 bg-secondary border border-border rounded-md text-sm resize-none text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary"
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) {
+                    e.preventDefault()
+                    handleQuickJournal()
+                  }
+                }}
+              />
+              <button
+                onClick={handleQuickJournal}
+                disabled={!quickJournal.trim()}
+                className="w-full mt-2 py-2 text-xs font-medium bg-secondary text-foreground rounded-md hover:bg-secondary/80 disabled:opacity-50 transition-colors"
+              >
+                📝 Save Journal
+              </button>
+            </div>
+            <div className="text-xs text-muted-foreground text-center">
+              Press Cmd/Ctrl + Enter to save quickly
+            </div>
+          </div>
+        )}
+      </div>
 
       {/* Open Full App */}
       <button
         onClick={handleOpenMain}
-        className="w-full mt-auto py-2 text-xs text-muted-foreground hover:text-foreground border border-border rounded-md transition-colors"
+        className="w-full mt-4 py-2 text-xs text-muted-foreground hover:text-foreground border border-border rounded-md transition-colors"
       >
         Open Full App →
       </button>

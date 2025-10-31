@@ -7,6 +7,7 @@ export type Mood = "😌" | "🙂" | "😐" | "😣" | "😡"
 
 export interface JournalEntry {
   id: string
+  title?: string // Optional title for the entry
   content: string
   mood?: Mood
   tags: string[]

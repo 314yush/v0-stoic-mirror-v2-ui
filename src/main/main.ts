@@ -249,12 +249,14 @@ function createTray(): void {
   tray.setToolTip('Mindful OS')
   tray.setIgnoreDoubleClickEvents(true)
   
-  // Click to toggle widget
-  tray.on('click', () => {
+  // On macOS: left-click opens widget, right-click shows menu
+  // Don't set context menu by default - handle clicks separately
+  tray.on('click', (event, bounds) => {
+    // Left click - open widget
     createWidgetWindow()
   })
 
-  // Right-click context menu
+  // Right-click context menu (only shows on right-click)
   const contextMenu = Menu.buildFromTemplate([
     {
       label: 'Open Mindful OS',
@@ -297,7 +299,15 @@ function createTray(): void {
     },
   ])
 
-  tray.setContextMenu(contextMenu)
+  // On macOS, we need to use 'right-click' event for context menu
+  // On other platforms, context menu shows on right-click automatically
+  if (process.platform === 'darwin') {
+    tray.on('right-click', () => {
+      tray?.popUpContextMenu(contextMenu)
+    })
+  } else {
+    tray.setContextMenu(contextMenu)
+  }
   
   console.log('Tray icon created successfully')
 }

@@ -4,7 +4,7 @@ import { useToastStore } from "./toasts"
 import { SettingsModal } from "./settings-modal"
 import type { User } from "@supabase/supabase-js"
 
-type Tab = "today" | "journal" | "weekly"
+type Tab = "today" | "journal" | "weekly" | "tasks"
 
 interface AppShellProps {
   activeTab: Tab
@@ -58,6 +58,16 @@ export function AppShell({ activeTab, onTabChange, children, user }: AppShellPro
               }`}
             >
               Weekly
+            </button>
+            <button
+              onClick={() => onTabChange("tasks")}
+              className={`px-4 py-2 text-sm font-medium transition-colors rounded-md ${
+                activeTab === "tasks"
+                  ? "bg-primary text-primary-foreground"
+                  : "text-muted-foreground hover:text-foreground hover:bg-secondary"
+              }`}
+            >
+              Tasks
             </button>
           </nav>
         </div>

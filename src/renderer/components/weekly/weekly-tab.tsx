@@ -8,13 +8,19 @@ import { RoutineEditorModal } from "../routine-editor-modal"
 import { RoutineSelectorModal } from "../routine-selector-modal"
 import { useJournalStore } from "../../lib/journal-store"
 import { useRoutineStore } from "../../lib/routine-store"
+import { useTasksStore } from "../../lib/tasks-store"
 
 export function WeeklyTab() {
   const { entries } = useJournalStore()
   const { templates } = useRoutineStore()
+  const { tasks } = useTasksStore()
   const [showRoutineEditor, setShowRoutineEditor] = useState(false)
   const [showRoutineSelector, setShowRoutineSelector] = useState(false)
   const [editingTemplateId, setEditingTemplateId] = useState<string | null>(null)
+
+  // Calculate task stats
+  const totalTasks = tasks.length
+  const completedTasks = tasks.filter((t) => t.completed).length
 
   const handleEditRoutine = () => {
     setEditingTemplateId(null)
@@ -33,6 +39,29 @@ export function WeeklyTab() {
         <div className="grid grid-cols-2 gap-6">
           <StreakCard />
           <IdentityBars />
+        </div>
+
+        {/* Task Stats */}
+        <div className="p-4 bg-card border border-border rounded-lg">
+          <h3 className="text-sm font-semibold text-foreground mb-4">Task Completion</h3>
+          <div className="space-y-3">
+            <div className="flex items-center justify-between">
+              <span className="text-sm text-foreground">Total Tasks</span>
+              <span className="text-sm font-medium text-foreground">{totalTasks}</span>
+            </div>
+            <div className="flex items-center justify-between">
+              <span className="text-sm text-foreground">Completed</span>
+              <span className="text-sm font-medium text-primary">{completedTasks}</span>
+            </div>
+            {totalTasks > 0 && (
+              <div className="w-full bg-secondary rounded-full h-2 overflow-hidden">
+                <div
+                  className="bg-primary h-2 rounded-full transition-all"
+                  style={{ width: `${(completedTasks / totalTasks) * 100}%` }}
+                />
+              </div>
+            )}
+          </div>
         </div>
 
         <InsightsPanel />

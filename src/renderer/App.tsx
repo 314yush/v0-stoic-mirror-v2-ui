@@ -3,6 +3,7 @@ import { AppShell } from "./components/app-shell"
 import { TodayTab } from "./components/today/today-tab"
 import { JournalTab } from "./components/journal/journal-tab"
 import { WeeklyTab } from "./components/weekly/weekly-tab"
+import { TasksTab } from "./components/tasks/tasks-tab"
 import { MinimalWidget } from "./components/widget/minimal-widget"
 import { Toasts } from "./components/toasts"
 import { LoginScreen } from "./components/auth/login-screen"
@@ -13,7 +14,7 @@ import { useThemeStore } from "./lib/theme-store"
 import { useToastStore } from "./components/toasts"
 import { checkNudgeTime, hasBeenNudgedToday, markNudged, snoozeNudge } from "./lib/nudge-service"
 
-type Tab = "today" | "journal" | "weekly"
+type Tab = "today" | "journal" | "weekly" | "tasks"
 
 export default function App() {
   // Check if we're in widget mode (from URL hash)
@@ -99,9 +100,12 @@ export default function App() {
         } else if (e.key === "t" || e.key === "T") {
           e.preventDefault()
           setActiveTab("today")
-        } else if (e.key === "w" || e.key === "W") {
+        } else         if (e.key === "w" || e.key === "W") {
           e.preventDefault()
           setActiveTab("weekly")
+        } else if (e.key === "k" || e.key === "K") {
+          e.preventDefault()
+          setActiveTab("tasks")
         }
       }
     }
@@ -143,6 +147,7 @@ export default function App() {
         {activeTab === "today" && <TodayTab />}
         {activeTab === "journal" && <JournalTab />}
         {activeTab === "weekly" && <WeeklyTab />}
+        {activeTab === "tasks" && <TasksTab />}
       </AppShell>
       <Toasts />
       <NetworkStatus />
