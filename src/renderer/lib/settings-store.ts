@@ -4,7 +4,7 @@ import { storage } from "./storage"
 import { useThemeStore } from "./theme-store"
 
 export interface UserSettings {
-  aiProvider: "ollama" | "gemini" | "claude" | "chatgpt"
+  aiProvider: "ollama" | "gemini"
   ollamaUrl: string
   ollamaModel: string
   geminiApiKey: string
@@ -36,7 +36,7 @@ export const useSettingsStore = create<SettingsState>()(
       settings: {
         aiProvider: "ollama",
         ollamaUrl: "http://localhost:11434",
-        ollamaModel: "gemma3:4b",
+        ollamaModel: "llama3.2:1b",
         geminiApiKey: import.meta.env.VITE_GEMINI_API_KEY || "",
         theme: "dark",
       },

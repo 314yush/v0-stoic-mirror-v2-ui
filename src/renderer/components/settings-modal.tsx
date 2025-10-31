@@ -95,15 +95,13 @@ export function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
               onChange={(e) =>
                 setLocalSettings({
                   ...localSettings,
-                  aiProvider: e.target.value as "ollama" | "gemini" | "claude" | "chatgpt",
+                  aiProvider: e.target.value as "ollama" | "gemini",
                 })
               }
               className="w-full px-3 py-2 bg-secondary border border-border rounded-md text-foreground focus:outline-none focus:ring-2 focus:ring-primary"
             >
               <option value="ollama">Ollama (Local - Recommended)</option>
               <option value="gemini">Gemini (Cloud Fallback)</option>
-              <option value="claude">Claude (Cloud Fallback)</option>
-              <option value="chatgpt">ChatGPT (Cloud Fallback)</option>
             </select>
             <p className="text-xs text-muted-foreground mt-2">
               If Ollama is unavailable, the app will automatically fallback to Gemini

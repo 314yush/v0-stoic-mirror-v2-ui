@@ -24,7 +24,7 @@ const WEEKEND_PRESET: TimeBlock[] = [
 ]
 
 export function TodayTab() {
-  const { getTodayCommit, commitDay: saveCommit } = useScheduleStore()
+  const { getTodayCommit, commitDay: saveCommit, commits } = useScheduleStore()
   const todayCommit = getTodayCommit()
   
   const [blocks, setBlocks] = useState<TimeBlock[]>(todayCommit?.blocks || [])
@@ -39,14 +39,28 @@ export function TodayTab() {
   const [showQuickJournal, setShowQuickJournal] = useState(false)
   const [quickJournalText, setQuickJournalText] = useState("")
   
-  // Load today's commit on mount
+  // Load today's commit on mount and sync when store updates (including completion changes)
   useEffect(() => {
-    if (todayCommit && todayCommit.blocks.length > 0) {
-      setBlocks(todayCommit.blocks)
-      setCommitted(todayCommit.committed)
-      setCommitTime(new Date(todayCommit.committed_at).toLocaleTimeString())
+    const currentCommit = getTodayCommit()
+    if (currentCommit && currentCommit.blocks.length > 0) {
+      // Only update if the commit actually changed (e.g., completion status updated)
+      const blocksChanged = JSON.stringify(blocks) !== JSON.stringify(currentCommit.blocks)
+      const committedChanged = committed !== currentCommit.committed
+      
+      if (blocksChanged || committedChanged) {
+        setBlocks(currentCommit.blocks)
+        setCommitted(currentCommit.committed)
+        if (currentCommit.committed_at) {
+          setCommitTime(new Date(currentCommit.committed_at).toLocaleTimeString())
+        }
+      }
+    } else if (!currentCommit && blocks.length > 0 && committed) {
+      // Commit was deleted from store
+      setBlocks([])
+      setCommitted(false)
+      setCommitTime(null)
     }
-  }, [])
+  }, [commits, getTodayCommit]) // Re-run when commits array changes
 
   const handleUseRoutine = (preset: "weekday" | "weekend") => {
     setBlocks(preset === "weekday" ? [...WEEKDAY_PRESET] : [...WEEKEND_PRESET])

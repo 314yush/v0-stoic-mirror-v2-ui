@@ -3,18 +3,16 @@
  * 
  * Supports multiple AI providers:
  * - Ollama (local, free, private)
- * - Claude (Anthropic)
  * - Gemini (Google)
- * - ChatGPT (OpenAI)
  */
 
-export type AIProvider = "ollama" | "claude" | "gemini" | "chatgpt"
+export type AIProvider = "ollama" | "gemini"
 
 export interface AIConfig {
   provider: AIProvider
   // Ollama config
   ollamaUrl?: string // Default: http://localhost:11434
-  ollamaModel?: string // Default: gemma2:3b or gemma2:9b
+  ollamaModel?: string // Default: llama3.2:1b
   // API keys for cloud providers
   apiKey?: string
   // Model names for cloud providers
@@ -52,7 +50,7 @@ export class OllamaProvider implements AIProviderInterface {
   }
 
   private getModel(): string {
-    return this.config.ollamaModel || "gemma2:3b"
+    return this.config.ollamaModel || "llama3.2:1b"
   }
 
   async chat(messages: AIMessage[]): Promise<AIResponse> {
@@ -125,78 +123,6 @@ Mood:`
   }
 }
 
-/**
- * Claude Provider (Anthropic)
- */
-class ClaudeProvider implements AIProviderInterface {
-  constructor(private config: AIConfig) {}
-
-  async chat(messages: AIMessage[]): Promise<AIResponse> {
-    try {
-      const response = await fetch("https://api.anthropic.com/v1/messages", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          "x-api-key": this.config.apiKey || "",
-          "anthropic-version": "2023-06-01",
-        },
-        body: JSON.stringify({
-          model: this.config.model || "claude-3-haiku-20240307",
-          max_tokens: 1024,
-          messages: messages.filter((m) => m.role !== "system"),
-        }),
-      })
-
-      if (!response.ok) {
-        throw new Error(`Claude API error: ${response.statusText}`)
-      }
-
-      const data = await response.json()
-      return { content: data.content[0]?.text || "" }
-    } catch (error) {
-      return {
-        content: "",
-        error: error instanceof Error ? error.message : "Claude API error",
-      }
-    }
-  }
-
-  async generateSummary(conversation: string): Promise<string> {
-    const response = await this.chat([
-      {
-        role: "user",
-        content: `Summarize this journal conversation into 2-3 compassionate bullet points:\n\n${conversation}`,
-      },
-    ])
-    return response.content || "No summary available"
-  }
-
-  async extractTags(conversation: string): Promise<string[]> {
-    const response = await this.chat([
-      {
-        role: "user",
-        content: `Extract relevant tags from this journal conversation. Return only tag names, comma-separated:\n\n${conversation}`,
-      },
-    ])
-    const tags = response.content
-      .split(",")
-      .map((t) => t.trim())
-      .filter((t) => t.length > 0)
-      .slice(0, 5)
-    return tags
-  }
-
-  async suggestMood(conversation: string): Promise<string> {
-    const response = await this.chat([
-      {
-        role: "user",
-        content: `Based on this journal conversation, suggest a mood emoji: 😌 🙂 😐 😣 😡\n\n${conversation}`,
-      },
-    ])
-    const mood = response.content.trim().match(/[😌🙂😐😣😡]/)?.[0] || "😐"
-    return mood
-  }
-}
 
 /**
  * Gemini Provider (Google)
@@ -327,79 +253,6 @@ class GeminiProvider implements AIProviderInterface {
   }
 }
 
-/**
- * ChatGPT Provider (OpenAI)
- */
-class ChatGPTProvider implements AIProviderInterface {
-  constructor(private config: AIConfig) {}
-
-  async chat(messages: AIMessage[]): Promise<AIResponse> {
-    try {
-      const response = await fetch("https://api.openai.com/v1/chat/completions", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${this.config.apiKey}`,
-        },
-        body: JSON.stringify({
-          model: this.config.model || "gpt-3.5-turbo",
-          messages: messages.map((m) => ({
-            role: m.role === "assistant" ? "assistant" : m.role === "system" ? "system" : "user",
-            content: m.content,
-          })),
-        }),
-      })
-
-      if (!response.ok) {
-        throw new Error(`OpenAI API error: ${response.statusText}`)
-      }
-
-      const data = await response.json()
-      return { content: data.choices?.[0]?.message?.content || "" }
-    } catch (error) {
-      return {
-        content: "",
-        error: error instanceof Error ? error.message : "OpenAI API error",
-      }
-    }
-  }
-
-  async generateSummary(conversation: string): Promise<string> {
-    const response = await this.chat([
-      {
-        role: "user",
-        content: `Summarize this journal conversation into 2-3 compassionate bullet points:\n\n${conversation}`,
-      },
-    ])
-    return response.content || "No summary available"
-  }
-
-  async extractTags(conversation: string): Promise<string[]> {
-    const response = await this.chat([
-      {
-        role: "user",
-        content: `Extract relevant tags from this journal conversation. Return only tag names, comma-separated:\n\n${conversation}`,
-      },
-    ])
-    const tags = response.content
-      .split(",")
-      .map((t) => t.trim())
-      .filter((t) => t.length > 0)
-      .slice(0, 5)
-    return tags
-  }
-
-  async suggestMood(conversation: string): Promise<string> {
-    const response = await this.chat([
-      {
-        role: "user",
-        content: `Based on this journal conversation, suggest a mood emoji: 😌 🙂 😐 😣 😡\n\n${conversation}`,
-      },
-    ])
-    const mood = response.content.trim().match(/[😌🙂😐😣😡]/)?.[0] || "😐"
-    return mood
-  }
-}
 
 /**
  * Detect if Ollama is available locally
@@ -422,11 +275,11 @@ export async function detectOllama(url: string = "http://localhost:11434"): Prom
 
 /**
  * Get AI Provider with smart fallback
- * Tries Ollama first, falls back to cloud if unavailable
+ * Tries Ollama first, falls back to Gemini if unavailable
  */
 export async function getAIProviderWithFallback(
   config: AIConfig,
-  fallbackProvider: AIConfig = { provider: "chatgpt" }
+  fallbackProvider: AIConfig = { provider: "gemini" }
 ): Promise<AIProviderInterface> {
   // If explicitly set to non-Ollama, use that
   if (config.provider !== "ollama") {
@@ -440,8 +293,8 @@ export async function getAIProviderWithFallback(
     return new OllamaProvider(config)
   }
 
-  // Fallback to cloud provider
-  console.log("Ollama not available, falling back to cloud AI")
+  // Fallback to Gemini
+  console.log("Ollama not available, falling back to Gemini")
   return getAIProvider(fallbackProvider)
 }
 
@@ -452,12 +305,8 @@ export function getAIProvider(config: AIConfig): AIProviderInterface {
   switch (config.provider) {
     case "ollama":
       return new OllamaProvider(config)
-    case "claude":
-      return new ClaudeProvider(config)
     case "gemini":
       return new GeminiProvider(config)
-    case "chatgpt":
-      return new ChatGPTProvider(config)
     default:
       return new OllamaProvider(config) // Default to Ollama
   }
@@ -470,6 +319,6 @@ export function getDefaultAIConfig(): AIConfig {
   return {
     provider: "ollama",
     ollamaUrl: "http://localhost:11434",
-    ollamaModel: "gemma2:3b",
+    ollamaModel: "llama3.2:1b",
   }
 }

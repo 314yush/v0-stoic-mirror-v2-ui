@@ -4,6 +4,7 @@ import type React from "react"
 import { useState, useRef, useEffect } from "react"
 import type { TimeBlock } from "../../lib/schedule-store"
 import { useScheduleStore } from "../../lib/schedule-store"
+import { useToastStore } from "../toasts"
 
 interface DayTimelineProps {
   blocks: TimeBlock[]
@@ -53,6 +54,7 @@ export function DayTimeline({ blocks, onUpdateBlock, onDeleteBlock, onAddBlock }
   const [currentTime, setCurrentTime] = useState(new Date())
   const timelineRef = useRef<HTMLDivElement>(null)
   const { updateBlockCompletion } = useScheduleStore()
+  const { addToast } = useToastStore()
 
   // Update current time every minute
   useEffect(() => {
@@ -404,24 +406,34 @@ export function DayTimeline({ blocks, onUpdateBlock, onDeleteBlock, onAddBlock }
                           {isBlockPastEndTime(block) && (
                             <div className="flex items-center gap-1 shrink-0" onClick={(e) => e.stopPropagation()}>
                               <button
-                                onClick={() => updateBlockCompletion(block.id, true)}
-                                className={`px-2 py-1 text-xs rounded transition-colors ${
+                                onClick={() => {
+                                  updateBlockCompletion(block.id, true)
+                                  // Also update local state to trigger re-render
+                                  onUpdateBlock(block.id, { completed: true })
+                                  addToast(`"${block.identity}" marked as completed`, "success")
+                                }}
+                                className={`px-3 py-1.5 text-xs font-medium rounded transition-all ${
                                   block.completed === true
-                                    ? "bg-primary text-primary-foreground"
-                                    : "bg-secondary text-muted-foreground hover:text-foreground hover:bg-secondary/80"
+                                    ? "bg-green-500/20 text-green-400 border-2 border-green-500/50 shadow-sm"
+                                    : "bg-secondary text-muted-foreground hover:text-foreground hover:bg-secondary/80 border border-border"
                                 }`}
                               >
-                                Yes
+                                {block.completed === true ? "✓ Yes" : "Yes"}
                               </button>
                               <button
-                                onClick={() => updateBlockCompletion(block.id, false)}
-                                className={`px-2 py-1 text-xs rounded transition-colors ${
+                                onClick={() => {
+                                  updateBlockCompletion(block.id, false)
+                                  // Also update local state to trigger re-render
+                                  onUpdateBlock(block.id, { completed: false })
+                                  addToast(`"${block.identity}" marked as not completed`, "info")
+                                }}
+                                className={`px-3 py-1.5 text-xs font-medium rounded transition-all ${
                                   block.completed === false
-                                    ? "bg-primary text-primary-foreground"
-                                    : "bg-secondary text-muted-foreground hover:text-foreground hover:bg-secondary/80"
+                                    ? "bg-red-500/20 text-red-400 border-2 border-red-500/50 shadow-sm"
+                                    : "bg-secondary text-muted-foreground hover:text-foreground hover:bg-secondary/80 border border-border"
                                 }`}
                               >
-                                No
+                                {block.completed === false ? "✗ No" : "No"}
                               </button>
                             </div>
                           )}

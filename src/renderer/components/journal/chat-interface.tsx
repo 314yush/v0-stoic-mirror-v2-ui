@@ -29,23 +29,12 @@ export function ChatInterface({ onSaveEntry }: ChatInterfaceProps) {
         ollamaUrl: settings.ollamaUrl,
         ollamaModel: settings.ollamaModel,
       }
-    } else if (settings.aiProvider === "gemini") {
+    } else {
+      // Default to Gemini
       return {
         provider: "gemini",
         apiKey: settings.geminiApiKey || import.meta.env.VITE_GEMINI_API_KEY || "",
         model: "gemini-2.5-flash", // From official quickstart docs
-      }
-    } else if (settings.aiProvider === "claude") {
-      return {
-        provider: "claude",
-        apiKey: import.meta.env.VITE_CLAUDE_API_KEY || "",
-        model: "claude-3-haiku-20240307",
-      }
-    } else {
-      return {
-        provider: "chatgpt",
-        apiKey: import.meta.env.VITE_OPENAI_API_KEY || "",
-        model: "gpt-3.5-turbo",
       }
     }
   }
