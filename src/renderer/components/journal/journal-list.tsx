@@ -7,8 +7,14 @@ interface JournalListProps {
 export function JournalList({ entries }: JournalListProps) {
   if (entries.length === 0) {
     return (
-      <div className="text-center py-8 text-muted-foreground">
-        <p>No entries found</p>
+      <div className="text-center py-12 px-4">
+        <p className="text-lg font-medium text-foreground mb-2">No entries found</p>
+        <p className="text-sm text-muted-foreground mb-2">
+          Start journaling to capture your thoughts, reflections, and insights
+        </p>
+        <p className="text-xs text-muted-foreground">
+          Use AI mode for guided conversations or free form for unstructured writing
+        </p>
       </div>
     )
   }
@@ -18,7 +24,7 @@ export function JournalList({ entries }: JournalListProps) {
       {entries.map((entry) => (
         <div
           key={entry.id}
-          className="p-4 bg-card border border-border rounded-lg hover:border-primary/50 transition-colors cursor-pointer"
+          className="card card-hover cursor-pointer"
         >
           <div className="flex items-start justify-between mb-2">
             <div className="flex items-center gap-2 flex-1 min-w-0">

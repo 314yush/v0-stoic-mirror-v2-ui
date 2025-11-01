@@ -2,6 +2,7 @@ import { create } from "zustand"
 import { persist, createJSONStorage } from "zustand/middleware"
 import { storage } from "./storage"
 import { useThemeStore } from "./theme-store"
+import { sanitizeOllamaUrl } from "./url-validation"
 
 export interface UserSettings {
   aiProvider: "ollama" | "gemini"
@@ -41,8 +42,14 @@ export const useSettingsStore = create<SettingsState>()(
         theme: "dark",
       },
       updateSettings: (updates) => {
+        // Sanitize Ollama URL if provided
+        const sanitizedUpdates = { ...updates }
+        if (updates.ollamaUrl !== undefined) {
+          sanitizedUpdates.ollamaUrl = sanitizeOllamaUrl(updates.ollamaUrl)
+        }
+
         set({
-          settings: { ...get().settings, ...updates },
+          settings: { ...get().settings, ...sanitizedUpdates },
         })
         // Also update theme if changed
         if (updates.theme) {

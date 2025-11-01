@@ -2,6 +2,7 @@ import { useState, useEffect } from "react"
 import { useSettingsStore } from "../lib/settings-store"
 import { useThemeStore } from "../lib/theme-store"
 import { useToastStore } from "./toasts"
+import { validateOllamaUrl } from "../lib/url-validation"
 
 interface SettingsModalProps {
   isOpen: boolean
@@ -23,6 +24,15 @@ export function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
   if (!isOpen) return null
 
   const handleSave = () => {
+    // Validate Ollama URL if provided
+    if (localSettings.aiProvider === "ollama" && localSettings.ollamaUrl) {
+      const validation = validateOllamaUrl(localSettings.ollamaUrl)
+      if (!validation.valid) {
+        addToast(validation.error || "Invalid Ollama URL", "error")
+        return
+      }
+    }
+
     updateSettings(localSettings)
     if (localSettings.theme !== theme) {
       setTheme(localSettings.theme)
@@ -98,7 +108,7 @@ export function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
                   aiProvider: e.target.value as "ollama" | "gemini",
                 })
               }
-              className="w-full px-3 py-2 bg-secondary border border-border rounded-md text-foreground focus:outline-none focus:ring-2 focus:ring-primary"
+              className="input"
             >
               <option value="ollama">Ollama (Local - Recommended)</option>
               <option value="gemini">Gemini (Cloud Fallback)</option>
@@ -121,9 +131,21 @@ export function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
                   onChange={(e) =>
                     setLocalSettings({ ...localSettings, ollamaUrl: e.target.value })
                   }
+                  onBlur={(e) => {
+                    // Validate on blur
+                    if (e.target.value) {
+                      const validation = validateOllamaUrl(e.target.value)
+                      if (!validation.valid) {
+                        addToast(validation.error || "Invalid URL", "error")
+                      }
+                    }
+                  }}
                   placeholder="http://localhost:11434"
-                  className="w-full px-3 py-2 bg-secondary border border-border rounded-md text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary"
+                  className="input"
                 />
+                <p className="text-xs text-muted-foreground mt-2">
+                  Must be localhost or 127.0.0.1 (local only for security)
+                </p>
               </div>
 
               <div>
@@ -137,7 +159,7 @@ export function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
                     setLocalSettings({ ...localSettings, ollamaModel: e.target.value })
                   }
                   placeholder="gemma3:4b"
-                  className="w-full px-3 py-2 bg-secondary border border-border rounded-md text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary"
+                  className="input"
                 />
               </div>
             </>
@@ -156,7 +178,7 @@ export function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
                   setLocalSettings({ ...localSettings, geminiApiKey: e.target.value })
                 }
                 placeholder="Enter your Gemini API key"
-                className="w-full px-3 py-2 bg-secondary border border-border rounded-md text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary"
+                className="input"
               />
               <p className="text-xs text-muted-foreground mt-2">
                 Get your API key from{" "}
@@ -177,13 +199,13 @@ export function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
           <div className="flex items-center justify-end gap-3 pt-4 border-t border-border">
             <button
               onClick={onClose}
-              className="px-4 py-2 text-sm text-muted-foreground hover:text-foreground transition-colors"
+              className="btn-ghost btn-sm"
             >
               Cancel
             </button>
             <button
               onClick={handleSave}
-              className="px-4 py-2 text-sm font-medium bg-primary text-primary-foreground rounded-md hover:bg-primary/90 transition-colors"
+              className="btn btn-primary btn-sm"
             >
               Save Settings
             </button>

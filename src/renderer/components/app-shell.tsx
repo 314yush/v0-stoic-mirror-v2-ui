@@ -25,64 +25,65 @@ export function AppShell({ activeTab, onTabChange, children, user }: AppShellPro
 
   return (
     <div className="flex h-screen flex-col bg-background">
-      <header className="flex items-center justify-between border-b border-border px-6 py-3 pt-8">
-        <div className="flex items-center gap-6">
-          <h1 className="text-lg font-semibold text-foreground">Mindful OS</h1>
+      <header className="flex items-center justify-between border-b border-border px-6 py-4 bg-background/95 backdrop-blur-sm sticky top-0 z-50">
+        <div className="flex items-center gap-8">
+          <h1 className="text-xl font-semibold text-foreground tracking-tight">Stoic Mirror</h1>
           <nav className="flex gap-1">
             <button
               onClick={() => onTabChange("today")}
-              className={`px-4 py-2 text-sm font-medium transition-colors rounded-md ${
+              className={`btn btn-sm ${
                 activeTab === "today"
-                  ? "bg-primary text-primary-foreground"
-                  : "text-muted-foreground hover:text-foreground hover:bg-secondary"
+                  ? "btn-primary"
+                  : "btn-ghost"
               }`}
             >
               Today
             </button>
             <button
               onClick={() => onTabChange("journal")}
-              className={`px-4 py-2 text-sm font-medium transition-colors rounded-md ${
+              className={`btn btn-sm ${
                 activeTab === "journal"
-                  ? "bg-primary text-primary-foreground"
-                  : "text-muted-foreground hover:text-foreground hover:bg-secondary"
+                  ? "btn-primary"
+                  : "btn-ghost"
               }`}
             >
               Journal
             </button>
             <button
               onClick={() => onTabChange("weekly")}
-              className={`px-4 py-2 text-sm font-medium transition-colors rounded-md ${
+              className={`btn btn-sm ${
                 activeTab === "weekly"
-                  ? "bg-primary text-primary-foreground"
-                  : "text-muted-foreground hover:text-foreground hover:bg-secondary"
+                  ? "btn-primary"
+                  : "btn-ghost"
               }`}
             >
               Weekly
             </button>
             <button
               onClick={() => onTabChange("tasks")}
-              className={`px-4 py-2 text-sm font-medium transition-colors rounded-md ${
+              className={`btn btn-sm ${
                 activeTab === "tasks"
-                  ? "bg-primary text-primary-foreground"
-                  : "text-muted-foreground hover:text-foreground hover:bg-secondary"
+                  ? "btn-primary"
+                  : "btn-ghost"
               }`}
             >
               Tasks
             </button>
           </nav>
         </div>
-        <div className="flex items-center gap-3">
-          <span className="text-xs text-muted-foreground">{user.email}</span>
+        <div className="flex items-center gap-4">
+          <span className="text-xs text-muted-foreground font-medium">{user.email}</span>
           <button
             onClick={() => setShowSettings(true)}
-            className="px-3 py-1.5 text-sm text-muted-foreground hover:text-foreground transition-colors"
+            className="btn-ghost btn-sm p-2 rounded-md"
             title="Settings"
+            aria-label="Settings"
           >
             ⚙️
           </button>
           <button
             onClick={handleSignOut}
-            className="px-3 py-1.5 text-sm text-muted-foreground hover:text-foreground transition-colors"
+            className="btn-ghost btn-sm"
           >
             Sign Out
           </button>

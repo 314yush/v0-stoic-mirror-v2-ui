@@ -115,12 +115,13 @@ function createWidgetWindow(): void {
     resizable: false,
     movable: false,
     hasShadow: true,
-    backgroundColor: '#00000000', // Transparent
-    vibrancy: 'sidebar', // macOS blur effect
+    backgroundColor: '#00000000', // Fully transparent - let CSS handle glass effect
+    vibrancy: process.platform === 'darwin' ? 'under-window' : undefined, // macOS blur effect - under-window for better glass effect
     webPreferences: {
       nodeIntegration: false,
       contextIsolation: true,
       preload: path.join(__dirname, '../preload/preload.cjs'),
+      backgroundThrottling: false, // Ensure smooth animations
     },
   })
 
@@ -246,7 +247,7 @@ function createTray(): void {
   tray = new Tray(icon)
   
   // Set tooltip
-  tray.setToolTip('Mindful OS')
+  tray.setToolTip('Stoic Mirror')
   tray.setIgnoreDoubleClickEvents(true)
   
   // On macOS: left-click opens widget, right-click shows menu
@@ -259,7 +260,7 @@ function createTray(): void {
   // Right-click context menu (only shows on right-click)
   const contextMenu = Menu.buildFromTemplate([
     {
-      label: 'Open Mindful OS',
+      label: 'Open Stoic Mirror',
       click: () => {
         if (!mainWindow) {
           createMainWindow()
@@ -413,7 +414,7 @@ app.whenReady().then(() => {
   setupIpcHandlers()
   createTray() // Create tray icon first (app starts in menu bar)
   // Don't create main window on startup - start with tray only
-  // Main window will open when user clicks "Open Mindful OS" in context menu
+  // Main window will open when user clicks "Open Stoic Mirror" in context menu
 
   app.on('activate', () => {
     // macOS: re-create window when dock icon is clicked

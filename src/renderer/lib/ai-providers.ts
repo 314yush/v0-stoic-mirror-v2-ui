@@ -43,11 +43,15 @@ interface AIProviderInterface {
 /**
  * Ollama Provider (Local)
  */
+import { validateOllamaUrl, sanitizeOllamaUrl } from "./url-validation"
+
 export class OllamaProvider implements AIProviderInterface {
   constructor(private config: AIConfig) {}
 
   private getBaseUrl(): string {
-    return this.config.ollamaUrl || "http://localhost:11434"
+    const url = this.config.ollamaUrl || "http://localhost:11434"
+    // Validate and sanitize URL to prevent SSRF attacks
+    return sanitizeOllamaUrl(url)
   }
 
   private getModel(): string {
@@ -56,8 +60,15 @@ export class OllamaProvider implements AIProviderInterface {
 
   async chat(messages: AIMessage[]): Promise<AIResponse> {
     try {
+      // Validate URL before making request (extra safety)
+      const baseUrl = this.getBaseUrl()
+      const validation = validateOllamaUrl(baseUrl)
+      if (!validation.valid) {
+        throw new Error(`Invalid Ollama URL: ${validation.error}`)
+      }
+
       // Use Ollama's chat API for better conversation handling
-      const response = await fetch(`${this.getBaseUrl()}/api/chat`, {
+      const response = await fetch(`${baseUrl}/api/chat`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -154,6 +165,12 @@ class GeminiProvider implements AIProviderInterface {
       // Use gemini-2.5-flash (from official quickstart - free tier compatible)
       const model = this.config.model || "gemini-2.5-flash"
       const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent`
+      
+      // Validate URL is HTTPS (security check)
+      const urlValidation = validateHttpsUrl(url)
+      if (!urlValidation.valid) {
+        throw new Error(`Invalid Gemini API URL: ${urlValidation.error}`)
+      }
       
       // Format messages for Gemini API according to official format
       // Separate system instruction from conversation messages
@@ -285,10 +302,17 @@ class GeminiProvider implements AIProviderInterface {
  */
 export async function detectOllama(url: string = "http://localhost:11434"): Promise<boolean> {
   try {
+    // Validate URL before attempting connection
+    const sanitizedUrl = sanitizeOllamaUrl(url)
+    const validation = validateOllamaUrl(sanitizedUrl)
+    if (!validation.valid) {
+      return false
+    }
+
     const controller = new AbortController()
     const timeout = setTimeout(() => controller.abort(), 1000) // 1s timeout
     
-    const response = await fetch(`${url}/api/tags`, {
+    const response = await fetch(`${sanitizedUrl}/api/tags`, {
       method: "GET",
       signal: controller.signal,
     })
@@ -313,7 +337,8 @@ export async function getAIProviderWithFallback(
   }
 
   // Try Ollama first
-  const ollamaAvailable = await detectOllama(config.ollamaUrl || "http://localhost:11434")
+    const sanitizedUrl = sanitizeOllamaUrl(config.ollamaUrl)
+    const ollamaAvailable = await detectOllama(sanitizedUrl)
   
   if (ollamaAvailable) {
     return new OllamaProvider(config)

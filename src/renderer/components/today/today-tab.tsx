@@ -162,7 +162,7 @@ export function TodayTab() {
 
   return (
     <div className="h-full flex flex-col">
-      <div className="border-b border-border px-6 py-4">
+      <div className="border-b border-border px-6 py-4 pt-8">
         <div className="flex items-center justify-between mb-4">
           <div>
             <div className="flex items-center gap-4 mb-2">
@@ -198,37 +198,37 @@ export function TodayTab() {
               </p>
             )}
           </div>
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2 flex-wrap">
             <button
               onClick={() => setShowQuickJournal(true)}
-              className="px-3 py-1.5 text-sm text-muted-foreground hover:text-foreground transition-colors"
+              className="btn-ghost btn-sm"
             >
               Add Journal
             </button>
             {isToday && (
               <button
                 onClick={handleViewNextDay}
-                className="px-3 py-1.5 text-sm text-muted-foreground hover:text-foreground transition-colors"
+                className="btn-ghost btn-sm"
               >
                 Next Day →
               </button>
             )}
             <button
               onClick={handleUseYesterday}
-              className="px-3 py-1.5 text-sm text-muted-foreground hover:text-foreground transition-colors"
+              className="btn-ghost btn-sm"
             >
               Use Yesterday
             </button>
             <button
               onClick={handleClearDay}
-              className="px-3 py-1.5 text-sm text-muted-foreground hover:text-foreground transition-colors"
+              className="btn-ghost btn-sm"
             >
               Clear Day
             </button>
             <button
               onClick={handleCommitDay}
               disabled={committed}
-              className="px-4 py-1.5 text-sm font-medium bg-primary text-primary-foreground rounded-md hover:bg-primary/90 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+              className="btn btn-primary btn-sm disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:bg-primary"
             >
               {committed ? "Committed" : "Commit Day"}
             </button>
@@ -244,10 +244,13 @@ export function TodayTab() {
 
       <div className="flex-1 overflow-auto px-6 py-6">
         {blocks.length === 0 ? (
-          <div className="flex flex-col items-center justify-center h-full text-center">
+          <div className="flex flex-col items-center justify-center h-full text-center px-4">
             <p className="text-lg font-medium text-foreground mb-2">No blocks scheduled yet</p>
-            <p className="text-sm text-muted-foreground mb-6">
-              Start by loading a routine preset or adding your first block
+            <p className="text-sm text-muted-foreground mb-2">
+              Plan your day by adding time blocks for your activities
+            </p>
+            <p className="text-xs text-muted-foreground mb-6">
+              Use a routine preset or create your own schedule
             </p>
             <RoutinePresetPicker onSelect={handleUseRoutine} />
           </div>

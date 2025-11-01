@@ -43,7 +43,7 @@ export function JournalTab() {
   return (
     <div className="h-full flex flex-col">
       {/* AI Mode Toggle */}
-      <div className="border-b border-border px-6 py-3 flex items-center justify-between">
+      <div className="border-b border-border px-6 py-3 pt-6 flex items-center justify-between">
         <h2 className="text-lg font-semibold text-foreground">Journal</h2>
         <div className="flex items-center gap-2">
           <span className="text-xs text-muted-foreground">Free Form</span>
@@ -52,6 +52,9 @@ export function JournalTab() {
             className={`relative w-12 h-6 rounded-full transition-colors ${
               aiMode ? "bg-primary" : "bg-secondary"
             }`}
+            aria-label={aiMode ? "Switch to free form journaling" : "Switch to AI mode"}
+            aria-pressed={aiMode}
+            role="switch"
           >
             <span
               className={`absolute top-1 left-1 w-4 h-4 rounded-full bg-white transition-transform ${
@@ -76,6 +79,8 @@ export function JournalTab() {
         <button
           onClick={() => setIsPastEntriesOpen(!isPastEntriesOpen)}
           className="w-full px-6 py-4 flex items-center justify-between hover:bg-secondary/30 transition-colors"
+          aria-label={isPastEntriesOpen ? "Collapse past entries" : "Expand past entries"}
+          aria-expanded={isPastEntriesOpen}
         >
           <h2 className="text-lg font-semibold text-foreground">Past Entries</h2>
           <span className="text-muted-foreground">
@@ -89,30 +94,30 @@ export function JournalTab() {
               <div className="flex items-center gap-2">
                 <button
                   onClick={() => setViewMode("list")}
-                  className={`px-3 py-1.5 text-xs rounded-md transition-colors ${
+                  className={`btn btn-sm ${
                     viewMode === "list"
-                      ? "bg-primary text-primary-foreground"
-                      : "text-muted-foreground hover:text-foreground"
+                      ? "btn-primary"
+                      : "btn-ghost"
                   }`}
                 >
                   List
                 </button>
                 <button
                   onClick={() => setViewMode("timeline")}
-                  className={`px-3 py-1.5 text-xs rounded-md transition-colors ${
+                  className={`btn btn-sm ${
                     viewMode === "timeline"
-                      ? "bg-primary text-primary-foreground"
-                      : "text-muted-foreground hover:text-foreground"
+                      ? "btn-primary"
+                      : "btn-ghost"
                   }`}
                 >
                   Timeline
                 </button>
                 <button
                   onClick={() => setViewMode("weekly")}
-                  className={`px-3 py-1.5 text-xs rounded-md transition-colors ${
+                  className={`btn btn-sm ${
                     viewMode === "weekly"
-                      ? "bg-primary text-primary-foreground"
-                      : "text-muted-foreground hover:text-foreground"
+                      ? "btn-primary"
+                      : "btn-ghost"
                   }`}
                 >
                   Weekly

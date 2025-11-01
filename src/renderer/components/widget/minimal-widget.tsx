@@ -228,10 +228,14 @@ export function MinimalWidget() {
   }
 
   return (
-    <div className="w-full h-full bg-background/95 backdrop-blur-lg rounded-lg border border-border shadow-xl p-4 text-foreground flex flex-col">
+    <div className="widget-glass-container w-full h-full p-4 text-foreground flex flex-col relative overflow-hidden">
+      {/* Glass effect overlay elements */}
+      <div className="widget-glass-overlay-top absolute top-0 left-0 right-0 h-px pointer-events-none" />
+      <div className="widget-glass-overlay-left absolute top-0 left-0 w-px h-full pointer-events-none" />
+      
       {/* Header */}
-      <div className="flex items-center justify-between mb-3">
-        <h2 className="text-lg font-semibold">⚡ Mindful OS</h2>
+      <div className="flex items-center justify-between mb-3 relative z-10">
+        <h2 className="text-lg font-semibold">Stoic Mirror</h2>
         <button
           onClick={handleClose}
           className="text-muted-foreground hover:text-foreground transition-colors text-xl leading-none"
@@ -242,7 +246,7 @@ export function MinimalWidget() {
       </div>
 
       {/* Tabs */}
-      <div className="flex gap-1 mb-4 border-b border-border">
+      <div className="flex gap-1 mb-4 border-b border-border/30 relative z-10">
         <button
           onClick={() => setActiveTab('schedule')}
           className={`flex-1 py-2 text-xs font-medium transition-colors border-b-2 ${
@@ -276,12 +280,12 @@ export function MinimalWidget() {
       </div>
 
       {/* Tab Content */}
-      <div className="flex-1 overflow-auto">
+      <div className="flex-1 overflow-auto relative z-10">
         {activeTab === 'schedule' && (
           <div className="space-y-4">
             {/* Current Block */}
             {activeBlock ? (
-              <div className="p-3 bg-primary/10 border border-primary/30 rounded-lg">
+              <div className="p-3 bg-primary/10 backdrop-blur-sm border border-primary/30 rounded-lg">
                 <div className="flex items-center justify-between mb-2">
                   <span className="font-medium text-sm">🎯 {activeBlock.identity}</span>
                   <span className="text-xs text-muted-foreground">
@@ -294,26 +298,26 @@ export function MinimalWidget() {
                 <button
                   onClick={handleMarkComplete}
                   disabled={activeBlock.completed === true}
-                  className="w-full py-2 text-xs font-medium bg-primary text-primary-foreground rounded-md hover:bg-primary/90 disabled:opacity-50 transition-colors"
+                  className="w-full py-2 text-xs font-medium bg-primary/80 backdrop-blur-sm text-primary-foreground rounded-md hover:bg-primary/90 disabled:opacity-50 transition-colors border border-primary/30"
                 >
                   {activeBlock.completed ? '✓ Completed' : 'Mark Complete'}
                 </button>
               </div>
             ) : (
-              <div className="p-3 bg-secondary/50 rounded-lg text-center text-sm text-muted-foreground">
+              <div className="p-3 bg-secondary/30 backdrop-blur-sm rounded-lg text-center text-sm text-muted-foreground border border-border/20">
                 No active block
               </div>
             )}
 
             {/* Stats */}
-            <div className="p-3 bg-secondary/30 rounded-lg">
+            <div className="p-3 bg-secondary/20 backdrop-blur-sm rounded-lg border border-border/20">
               <div className="flex items-center justify-between mb-2">
                 <span className="text-xs text-muted-foreground">Progress</span>
                 <span className="text-xs font-medium">{adherence}%</span>
               </div>
-              <div className="w-full bg-secondary rounded-full h-2 mb-2">
+              <div className="w-full bg-white/10 dark:bg-white/5 rounded-full h-2 mb-2 backdrop-blur-sm">
                 <div
-                  className="bg-primary h-2 rounded-full transition-all"
+                  className="bg-primary/80 backdrop-blur-sm h-2 rounded-full transition-all"
                   style={{ width: `${adherence}%` }}
                 />
               </div>
@@ -335,16 +339,16 @@ export function MinimalWidget() {
           <div className="space-y-4">
             {/* Task Stats */}
             {totalTasks > 0 && (
-              <div className="p-3 bg-secondary/30 rounded-lg">
+              <div className="p-3 bg-secondary/20 backdrop-blur-sm rounded-lg border border-border/20">
                 <div className="flex items-center justify-between mb-2">
                   <span className="text-xs text-muted-foreground">Tasks</span>
                   <span className="text-xs font-medium">
                     {remainingTasks} remaining
                   </span>
                 </div>
-                <div className="w-full bg-secondary rounded-full h-1.5 mb-2">
+                <div className="w-full bg-white/10 dark:bg-white/5 rounded-full h-1.5 mb-2 backdrop-blur-sm">
                   <div
-                    className="bg-primary h-1.5 rounded-full transition-all"
+                    className="bg-primary/80 backdrop-blur-sm h-1.5 rounded-full transition-all"
                     style={{ width: `${taskCompletion}%` }}
                   />
                 </div>
@@ -364,7 +368,7 @@ export function MinimalWidget() {
                   }
                 }}
                 placeholder="Add a task..."
-                className="w-full p-2 bg-secondary border border-border rounded-md text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary"
+                className="w-full p-2 bg-white/10 dark:bg-white/5 backdrop-blur-sm border border-border/30 rounded-md text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/50 focus:border-primary/50"
               />
             </div>
 
@@ -374,7 +378,7 @@ export function MinimalWidget() {
                 {nextIncompleteTasks.map((task) => (
                   <div
                     key={task.id}
-                    className="flex items-center gap-2 p-2 bg-card border border-border rounded-lg hover:border-primary/50 transition-colors"
+                    className="flex items-center gap-2 p-2 bg-white/10 dark:bg-white/5 backdrop-blur-sm border border-border/30 rounded-lg hover:border-primary/50 transition-colors"
                   >
                     <button
                       onClick={() => toggleTask(task.id)}
@@ -411,7 +415,7 @@ export function MinimalWidget() {
                 onChange={(e) => setQuickJournal(e.target.value)}
                 placeholder="Quick journal entry..."
                 rows={4}
-                className="w-full p-2 bg-secondary border border-border rounded-md text-sm resize-none text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary"
+                className="w-full p-2 bg-white/10 dark:bg-white/5 backdrop-blur-sm border border-border/30 rounded-md text-sm resize-none text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/50 focus:border-primary/50"
                 onKeyDown={(e) => {
                   if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) {
                     e.preventDefault()
@@ -422,7 +426,7 @@ export function MinimalWidget() {
               <button
                 onClick={handleQuickJournal}
                 disabled={!quickJournal.trim()}
-                className="w-full mt-2 py-2 text-xs font-medium bg-secondary text-foreground rounded-md hover:bg-secondary/80 disabled:opacity-50 transition-colors"
+                className="w-full mt-2 py-2 text-xs font-medium bg-white/15 dark:bg-white/10 backdrop-blur-sm text-foreground rounded-md hover:bg-white/20 dark:hover:bg-white/15 disabled:opacity-50 transition-colors border border-border/30"
               >
                 📝 Save Journal
               </button>
@@ -437,7 +441,7 @@ export function MinimalWidget() {
       {/* Open Full App */}
       <button
         onClick={handleOpenMain}
-        className="w-full mt-4 py-2 text-xs text-muted-foreground hover:text-foreground border border-border rounded-md transition-colors"
+        className="w-full mt-4 py-2 text-xs text-muted-foreground hover:text-foreground bg-white/10 dark:bg-white/5 backdrop-blur-sm border border-border/30 rounded-md transition-colors relative z-10 hover:bg-white/15 dark:hover:bg-white/10"
       >
         Open Full App →
       </button>

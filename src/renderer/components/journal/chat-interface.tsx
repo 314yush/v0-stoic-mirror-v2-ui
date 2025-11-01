@@ -311,14 +311,14 @@ export function ChatInterface({ onSaveEntry }: ChatInterfaceProps) {
               }
             }}
             placeholder="Share what's on your mind..."
-            className="flex-1 px-3 py-2 text-sm bg-card border border-border rounded-md text-foreground placeholder:text-muted-foreground resize-none focus:outline-none focus:ring-2 focus:ring-primary"
+            className="input flex-1 resize-none"
             rows={2}
             disabled={isLoading}
           />
           <button
             onClick={handleSend}
             disabled={isLoading || !input.trim()}
-            className="px-4 py-2 text-sm font-medium bg-primary text-primary-foreground rounded-md hover:bg-primary/90 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+            className="btn btn-primary disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:bg-primary"
           >
             Send
           </button>
@@ -327,7 +327,7 @@ export function ChatInterface({ onSaveEntry }: ChatInterfaceProps) {
           <button
             onClick={handleSaveConversation}
             disabled={isLoading}
-            className="w-full px-4 py-2 text-sm font-medium bg-secondary text-foreground rounded-md hover:bg-secondary/80 transition-colors disabled:opacity-50"
+            className="btn btn-secondary w-full disabled:opacity-50"
           >
             💾 Save Conversation to Journal
           </button>

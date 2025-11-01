@@ -1,9 +1,19 @@
 import { createClient } from "@supabase/supabase-js"
+import { validateHttpsUrl } from "./url-validation"
 
 // Supabase configuration
 // These should be set via environment variables
-const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL || ""
+let SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL || ""
 const SUPABASE_ANON_KEY = import.meta.env.VITE_SUPABASE_ANON_KEY || ""
+
+// Validate Supabase URL is HTTPS
+if (SUPABASE_URL && SUPABASE_URL !== "https://placeholder.supabase.co") {
+  const validation = validateHttpsUrl(SUPABASE_URL)
+  if (!validation.valid) {
+    console.warn(`⚠️ Invalid Supabase URL: ${validation.error}. Using placeholder.`)
+    SUPABASE_URL = ""
+  }
+}
 
 // Debug logging (only in dev)
 if (import.meta.env.DEV) {

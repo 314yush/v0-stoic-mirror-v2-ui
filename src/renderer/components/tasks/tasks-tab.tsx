@@ -108,7 +108,7 @@ export function TasksTab() {
 
   return (
     <div className="h-full flex flex-col">
-      <div className="border-b border-border px-6 py-4">
+      <div className="border-b border-border px-6 py-4 pt-8">
         <div className="mb-4">
           <h2 className="text-xl font-semibold text-foreground mb-2">Tasks</h2>
           <p className="text-sm text-muted-foreground">
@@ -134,15 +134,15 @@ export function TasksTab() {
                 }
               }}
               placeholder="Add a new task..."
-              className={`flex-1 px-3 py-2 bg-secondary border rounded-md text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 transition-colors ${
+              className={`input flex-1 ${
                 showWarning
                   ? "border-destructive focus:ring-destructive"
-                  : "border-border focus:ring-primary"
+                  : ""
               }`}
             />
             <button
               onClick={handleAddTask}
-              className="px-4 py-2 text-sm font-medium bg-primary text-primary-foreground rounded-md hover:bg-primary/90 transition-colors"
+              className="btn btn-primary"
             >
               Add
             </button>
@@ -160,10 +160,13 @@ export function TasksTab() {
 
       <div className="flex-1 overflow-auto px-6 py-6">
         {sortedTasksByDate.length === 0 ? (
-          <div className="flex flex-col items-center justify-center h-full text-center">
+          <div className="flex flex-col items-center justify-center h-full text-center px-4">
             <p className="text-lg font-medium text-foreground mb-2">No tasks yet</p>
-            <p className="text-sm text-muted-foreground">
-              Start by adding your first task above
+            <p className="text-sm text-muted-foreground mb-4">
+              Add your first task above to get started. Tasks help you stay organized and track your progress.
+            </p>
+            <p className="text-xs text-muted-foreground">
+              Tip: Tasks are organized by date, with newest first. Mark them complete as you finish them.
             </p>
           </div>
         ) : (
@@ -177,7 +180,7 @@ export function TasksTab() {
                   {dateTasks.map((task) => (
                     <div
                       key={task.id}
-                      className={`group flex items-center gap-3 p-3 bg-card border border-border rounded-lg hover:border-primary/50 transition-colors ${
+                      className={`group flex items-center gap-3 card card-hover ${
                         task.completed ? "opacity-60" : ""
                       }`}
                     >

@@ -29,7 +29,7 @@ export function WeeklyTab() {
 
   return (
     <div className="h-full overflow-auto">
-      <div className="border-b border-border px-6 py-4">
+      <div className="border-b border-border px-6 py-4 pt-8">
         <h2 className="text-xl font-semibold text-foreground">Weekly Overview</h2>
       </div>
 
@@ -74,13 +74,13 @@ export function WeeklyTab() {
         <div className="flex items-center gap-3">
           <button
             onClick={() => setShowRoutineSelector(true)}
-            className="px-4 py-2 text-sm font-medium bg-primary text-primary-foreground rounded-md hover:bg-primary/90 transition-colors"
+            className="btn btn-primary btn-sm"
           >
             Use Saved Routine
           </button>
           <button
             onClick={handleEditRoutine}
-            className="px-4 py-2 text-sm text-muted-foreground hover:text-foreground transition-colors"
+            className="btn-ghost btn-sm"
           >
             Edit Routine
           </button>

@@ -1,19 +1,19 @@
 # Supabase Setup Guide
 
-This guide walks you through setting up Supabase for authentication and backend sync in Mindful OS.
+This guide walks you through setting up Supabase for authentication and backend sync in Stoic Mirror.
 
 ## Prerequisites
 
 1. A Supabase account (sign up at https://supabase.com)
 2. Node.js and npm installed
-3. Your Mindful OS project set up
+3. Your Stoic Mirror project set up
 
 ## Step 1: Create a Supabase Project
 
 1. Go to https://app.supabase.com
 2. Click "New Project"
 3. Fill in:
-   - **Name**: `mindful-os` (or any name you prefer)
+   - **Name**: `stoic-mirror` (or any name you prefer)
    - **Database Password**: Choose a strong password (save it!)
    - **Region**: Choose closest to you
 4. Click "Create new project" and wait for setup (~2 minutes)

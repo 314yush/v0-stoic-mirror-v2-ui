@@ -51,7 +51,7 @@ export function LoginScreen() {
     <div className="min-h-screen flex items-center justify-center bg-background p-4">
       <div className="w-full max-w-md bg-card border border-border rounded-lg p-6 space-y-6">
         <div className="text-center">
-          <h1 className="text-2xl font-bold text-foreground mb-2">Mindful OS</h1>
+          <h1 className="text-2xl font-bold text-foreground mb-2">Stoic Mirror</h1>
           <p className="text-sm text-muted-foreground">
             {isSignUp ? "Create your account" : "Sign in to continue"}
           </p>
@@ -67,7 +67,7 @@ export function LoginScreen() {
               type="email"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
-              className="w-full px-3 py-2 bg-secondary border border-border rounded-md text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary"
+              className="input"
               placeholder="you@example.com"
               required
               disabled={loading}
@@ -83,7 +83,7 @@ export function LoginScreen() {
               type="password"
               value={password}
               onChange={(e) => setPassword(e.target.value)}
-              className="w-full px-3 py-2 bg-secondary border border-border rounded-md text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary"
+              className="input"
               placeholder="••••••••"
               required
               disabled={loading}
@@ -94,7 +94,7 @@ export function LoginScreen() {
           <button
             type="submit"
             disabled={loading}
-            className="w-full px-4 py-2 text-sm font-medium bg-primary text-primary-foreground rounded-md hover:bg-primary/90 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+            className="btn btn-primary w-full disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:bg-primary"
           >
             {loading ? "Loading..." : isSignUp ? "Sign Up" : "Sign In"}
           </button>
