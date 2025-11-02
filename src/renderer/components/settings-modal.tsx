@@ -326,6 +326,97 @@ export function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
             </div>
           </div>
 
+          {/* Notification Settings */}
+          <div className="border-t border-border pt-4 space-y-6">
+            <h3 className="text-lg font-semibold text-foreground">Notifications</h3>
+            
+            {/* Evening Wind-Down Notification */}
+            <div className="space-y-3">
+              <div className="flex items-center justify-between">
+                <div className="flex-1">
+                  <label className="block text-sm font-medium text-foreground mb-1">
+                    Evening Wind-Down Reminder
+                  </label>
+                  <p className="text-xs text-muted-foreground">
+                    Get a desktop notification to set your routine for tomorrow
+                  </p>
+                </div>
+                <label className="relative inline-flex items-center cursor-pointer ml-4">
+                  <input
+                    type="checkbox"
+                    checked={localSettings.eveningWindDownEnabled}
+                    onChange={(e) => {
+                      setLocalSettings({ ...localSettings, eveningWindDownEnabled: e.target.checked })
+                    }}
+                    className="sr-only peer"
+                  />
+                  <div className="w-11 h-6 bg-secondary peer-focus:outline-none peer-focus:ring-2 peer-focus:ring-primary rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-primary"></div>
+                </label>
+              </div>
+              {localSettings.eveningWindDownEnabled && (
+                <div>
+                  <label className="block text-xs text-muted-foreground mb-2">
+                    Time (24-hour format)
+                  </label>
+                  <input
+                    type="time"
+                    value={localSettings.eveningWindDownTime}
+                    onChange={(e) => {
+                      setLocalSettings({ ...localSettings, eveningWindDownTime: e.target.value })
+                    }}
+                    className="input text-sm"
+                  />
+                  <p className="text-xs text-muted-foreground mt-1">
+                    You'll be notified 30 minutes before and after this time
+                  </p>
+                </div>
+              )}
+            </div>
+
+            {/* Wake-Up Notification */}
+            <div className="space-y-3">
+              <div className="flex items-center justify-between">
+                <div className="flex-1">
+                  <label className="block text-sm font-medium text-foreground mb-1">
+                    Wake-Up Reminder
+                  </label>
+                  <p className="text-xs text-muted-foreground">
+                    Get a desktop notification to review today's schedule
+                  </p>
+                </div>
+                <label className="relative inline-flex items-center cursor-pointer ml-4">
+                  <input
+                    type="checkbox"
+                    checked={localSettings.wakeUpEnabled}
+                    onChange={(e) => {
+                      setLocalSettings({ ...localSettings, wakeUpEnabled: e.target.checked })
+                    }}
+                    className="sr-only peer"
+                  />
+                  <div className="w-11 h-6 bg-secondary peer-focus:outline-none peer-focus:ring-2 peer-focus:ring-primary rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-primary"></div>
+                </label>
+              </div>
+              {localSettings.wakeUpEnabled && (
+                <div>
+                  <label className="block text-xs text-muted-foreground mb-2">
+                    Time (24-hour format)
+                  </label>
+                  <input
+                    type="time"
+                    value={localSettings.wakeUpTime}
+                    onChange={(e) => {
+                      setLocalSettings({ ...localSettings, wakeUpTime: e.target.value })
+                    }}
+                    className="input text-sm"
+                  />
+                  <p className="text-xs text-muted-foreground mt-1">
+                    You'll be notified 30 minutes before and after this time
+                  </p>
+                </div>
+              )}
+            </div>
+          </div>
+
           <div className="flex items-center justify-end gap-3 pt-4 border-t border-border">
             <button
               onClick={onClose}

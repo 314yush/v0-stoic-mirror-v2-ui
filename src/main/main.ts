@@ -1,4 +1,4 @@
-import { app, BrowserWindow, ipcMain, Tray, Menu, nativeImage, screen } from 'electron'
+import { app, BrowserWindow, ipcMain, Tray, Menu, nativeImage, screen, Notification } from 'electron'
 import * as path from 'path'
 import * as fs from 'fs'
 
@@ -577,6 +577,38 @@ function setupIpcHandlers(): void {
     }
   })
   
+  // Notification handler - show desktop notification
+  ipcMain.handle('notification:show', (_, options: { title: string; body: string; icon?: string }) => {
+    // Request notification permission on macOS
+    if (process.platform === 'darwin' && app.dock) {
+      app.dock.setBadge('') // Clear any badge
+    }
+    
+    const notification = new Notification({
+      title: options.title || 'Stoic Mirror',
+      body: options.body || '',
+      icon: options.icon || (isDev 
+        ? path.join(__dirname, '../../assets/icon.ico')
+        : undefined),
+      silent: false,
+    })
+    
+    notification.on('click', () => {
+      // Show main window when notification is clicked
+      if (mainWindow) {
+        mainWindow.show()
+        mainWindow.focus()
+      } else {
+        createMainWindow()
+      }
+    })
+    
+    notification.show()
+    console.log('📬 Desktop notification shown:', options.title)
+    
+    return true
+  })
+  
   // Debug handler - send tray status to renderer
   ipcMain.handle('tray:status', () => {
     try {
@@ -618,6 +650,13 @@ app.whenReady().then(() => {
   console.log('📡 Setting up IPC handlers...')
   setupIpcHandlers()
   console.log('✅ IPC handlers setup complete')
+  
+  // Request notification permission (macOS)
+  if (process.platform === 'darwin') {
+    // On macOS, notifications work automatically if app has proper permissions
+    // Users can manage permissions in System Preferences > Notifications
+    console.log('📬 Notification system ready (macOS manages permissions)')
+  }
   
   // Always create tray icon on startup (default enabled)
   // Settings sync will handle disabling it if needed

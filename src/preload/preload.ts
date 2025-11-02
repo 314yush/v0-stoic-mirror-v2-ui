@@ -25,6 +25,12 @@ contextBridge.exposeInMainWorld('electronAPI', {
   // Widget management
   invoke: (channel: string, ...args: any[]) => ipcRenderer.invoke(channel, ...args),
   
+  // Notifications
+  notification: {
+    show: (title: string, body: string, icon?: string) => 
+      ipcRenderer.invoke('notification:show', { title, body, icon }),
+  },
+  
   // Quick actions from menu bar
   onQuickAction: (callback: (action: string) => void) => {
     ipcRenderer.on('quick-action', (_, action) => callback(action))
@@ -52,6 +58,9 @@ declare global {
         openMain: () => Promise<void>
       }
       invoke: (channel: string, ...args: any[]) => Promise<any>
+      notification: {
+        show: (title: string, body: string, icon?: string) => Promise<boolean>
+      }
       onQuickAction: (callback: (action: string) => void) => void
       removeAllListeners: (channel: string) => void
     }

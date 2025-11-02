@@ -12,10 +12,10 @@ import { NetworkStatus } from "./components/network-status"
 import { useAuthStore } from "./lib/auth-store"
 import { useThemeStore } from "./lib/theme-store"
 import { useToastStore } from "./components/toasts"
-import { checkNudgeTime, hasBeenNudgedToday, markNudged, snoozeNudge } from "./lib/nudge-service"
+import { checkEveningNudgeTime, checkWakeUpNudgeTime, hasBeenNudgedToday, markNudged, snoozeNudge } from "./lib/nudge-service"
+import { useSettingsStore } from "./lib/settings-store"
 import { OnboardingModal } from "./components/onboarding/onboarding-modal"
 import { useOnboardingStore } from "./lib/onboarding-store"
-import { useSettingsStore } from "./lib/settings-store"
 
 // Import debug utilities (only in dev mode)
 if (import.meta.env.DEV) {
@@ -88,37 +88,69 @@ export default function App() {
     }
   }, [initialized])
 
-  // Evening nudge system (10pm) - check every minute
+  const { settings } = useSettingsStore()
+
+  // Notification system - check every minute for wake-up and evening nudges
   useEffect(() => {
     if (!user) return // Only show nudges when logged in
 
-    const checkNudge = () => {
-      // hasBeenNudgedToday() returns true if we should show nudge (haven't nudged yet)
-      if (checkNudgeTime() && hasBeenNudgedToday()) {
-        markNudged()
-        addToast(
-          "🌙 Evening wind-down: Time to set your routine for tomorrow!",
-          "info",
-          {
-            showSnooze: true,
-            onSnooze: () => {
-              snoozeNudge()
-              addToast("Nudge snoozed for 20 minutes", "success")
-            },
-          }
-        )
+    const checkNudges = () => {
+      // Evening wind-down notification
+      if (checkEveningNudgeTime() && hasBeenNudgedToday('evening')) {
+        markNudged('evening')
+        
+        const message = "🌙 Evening wind-down: Time to set your routine for tomorrow!"
+        
+        // Show desktop notification if Electron API is available
+        if (window.electronAPI?.notification) {
+          window.electronAPI.notification.show(
+            "Stoic Mirror - Evening Reminder",
+            message
+          ).catch(console.error)
+        }
+        
+        // Also show in-app toast
+        addToast(message, "info", {
+          showSnooze: true,
+          onSnooze: () => {
+            snoozeNudge()
+            addToast("Nudge snoozed for 20 minutes", "success")
+          },
+        })
+        
         // Switch to Today tab to set routine
+        setActiveTab("today")
+      }
+
+      // Wake-up notification
+      if (checkWakeUpNudgeTime() && hasBeenNudgedToday('wakeup')) {
+        markNudged('wakeup')
+        
+        const message = "☀️ Good morning! Time to review today's schedule."
+        
+        // Show desktop notification if Electron API is available
+        if (window.electronAPI?.notification) {
+          window.electronAPI.notification.show(
+            "Stoic Mirror - Wake Up",
+            message
+          ).catch(console.error)
+        }
+        
+        // Also show in-app toast
+        addToast(message, "info")
+        
+        // Switch to Today tab to see schedule
         setActiveTab("today")
       }
     }
 
     // Check immediately
-    checkNudge()
+    checkNudges()
 
     // Check every minute
-    const interval = setInterval(checkNudge, 60000)
+    const interval = setInterval(checkNudges, 60000)
     return () => clearInterval(interval)
-  }, [user, addToast])
+  }, [user, addToast, settings.eveningWindDownEnabled, settings.eveningWindDownTime, settings.wakeUpEnabled, settings.wakeUpTime])
 
   useEffect(() => {
     if (!initialized) {

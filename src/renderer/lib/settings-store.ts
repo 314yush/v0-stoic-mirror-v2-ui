@@ -11,6 +11,11 @@ export interface UserSettings {
   geminiApiKey: string
   theme: "dark" | "light"
   widgetEnabled: boolean
+  // Notification settings
+  wakeUpTime: string // Format: "HH:MM" (24-hour), e.g. "07:00"
+  wakeUpEnabled: boolean
+  eveningWindDownTime: string // Format: "HH:MM" (24-hour), e.g. "22:00"
+  eveningWindDownEnabled: boolean
 }
 
 interface SettingsState {
@@ -42,6 +47,11 @@ export const useSettingsStore = create<SettingsState>()(
         geminiApiKey: "", // Users must enter their own API key - never bundle keys
         theme: "dark",
         widgetEnabled: true, // Widget enabled by default
+        // Notification defaults
+        wakeUpTime: "07:00",
+        wakeUpEnabled: false,
+        eveningWindDownTime: "22:00",
+        eveningWindDownEnabled: true,
       },
       updateSettings: (updates) => {
         // Sanitize Ollama URL if provided

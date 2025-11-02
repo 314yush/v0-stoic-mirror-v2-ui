@@ -356,11 +356,14 @@ export function MinimalWidget() {
                     {remainingTasks} remaining
                   </span>
                 </div>
-                <div className="w-full bg-white/10 dark:bg-white/5 rounded-full h-1.5 mb-2 backdrop-blur-sm">
+                <div className="w-full bg-[rgba(255,255,255,0.2)] dark:bg-[rgba(255,255,255,0.1)] rounded-full h-2 mb-2 overflow-hidden border border-border/30">
                   <div
-                    className="bg-primary/80 backdrop-blur-sm h-1.5 rounded-full transition-all"
-                    style={{ width: `${taskCompletion}%` }}
+                    className="bg-[rgba(34,197,94,0.8)] dark:bg-[rgba(34,197,94,0.9)] h-full rounded-full transition-all duration-300"
+                    style={{ width: `${taskCompletion}%`, minWidth: taskCompletion > 0 ? '4px' : '0px' }}
                   />
+                </div>
+                <div className="text-xs text-muted-foreground">
+                  {completedTasks} of {totalTasks} completed ({taskCompletion}%)
                 </div>
               </div>
             )}
