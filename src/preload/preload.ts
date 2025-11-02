@@ -22,6 +22,9 @@ contextBridge.exposeInMainWorld('electronAPI', {
     openMain: () => ipcRenderer.invoke('window:openMain'),
   },
   
+  // Widget management
+  invoke: (channel: string, ...args: any[]) => ipcRenderer.invoke(channel, ...args),
+  
   // Quick actions from menu bar
   onQuickAction: (callback: (action: string) => void) => {
     ipcRenderer.on('quick-action', (_, action) => callback(action))
@@ -48,6 +51,7 @@ declare global {
         minimize: () => Promise<void>
         openMain: () => Promise<void>
       }
+      invoke: (channel: string, ...args: any[]) => Promise<any>
       onQuickAction: (callback: (action: string) => void) => void
       removeAllListeners: (channel: string) => void
     }

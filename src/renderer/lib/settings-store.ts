@@ -10,6 +10,7 @@ export interface UserSettings {
   ollamaModel: string
   geminiApiKey: string
   theme: "dark" | "light"
+  widgetEnabled: boolean
 }
 
 interface SettingsState {
@@ -40,6 +41,7 @@ export const useSettingsStore = create<SettingsState>()(
         ollamaModel: "llama3.2:1b",
         geminiApiKey: "", // Users must enter their own API key - never bundle keys
         theme: "dark",
+        widgetEnabled: true, // Widget enabled by default
       },
       updateSettings: (updates) => {
         // Sanitize Ollama URL if provided
@@ -55,6 +57,10 @@ export const useSettingsStore = create<SettingsState>()(
         if (updates.theme) {
           const { setTheme } = useThemeStore.getState()
           setTheme(updates.theme)
+        }
+        // Notify main process about widget setting change
+        if (updates.widgetEnabled !== undefined && window.electronAPI) {
+          window.electronAPI.invoke('widget:toggle', updates.widgetEnabled).catch(console.error)
         }
       },
     }),

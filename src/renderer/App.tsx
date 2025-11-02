@@ -15,6 +15,7 @@ import { useToastStore } from "./components/toasts"
 import { checkNudgeTime, hasBeenNudgedToday, markNudged, snoozeNudge } from "./lib/nudge-service"
 import { OnboardingModal } from "./components/onboarding/onboarding-modal"
 import { useOnboardingStore } from "./lib/onboarding-store"
+import { useSettingsStore } from "./lib/settings-store"
 
 // Import debug utilities (only in dev mode)
 if (import.meta.env.DEV) {
@@ -57,6 +58,35 @@ export default function App() {
       document.documentElement.classList.remove("dark")
     }
   }, [theme])
+
+  // Sync widget enabled state with main process on startup
+  // This ensures the tray respects the saved setting, but defaults to enabled
+  useEffect(() => {
+    if (initialized && window.electronAPI) {
+      const settings = useSettingsStore.getState().settings
+      // Default to true if not set - widget should always appear by default
+      const widgetEnabled = settings.widgetEnabled !== false // Only false if explicitly false
+      console.log('📱 Syncing widget state:', { widgetEnabled, saved: settings.widgetEnabled })
+      
+      // Check tray status after a brief delay (give main process time to register handlers)
+      setTimeout(() => {
+        if (window.electronAPI) {
+          window.electronAPI.invoke('tray:status').then((status: any) => {
+            console.log('📱 Tray status:', status)
+            if (!status.exists && widgetEnabled) {
+              console.warn('⚠️ Tray should exist but does not! Attempting to create...')
+              window.electronAPI?.invoke('widget:toggle', true).catch(console.error)
+            }
+          }).catch((error: any) => {
+            // Handler might not be registered yet, that's okay - widget:toggle will still work
+            console.log('📱 Could not get tray status (handler may not be ready yet):', error.message)
+          })
+        }
+      }, 2000) // Increased delay to ensure handlers are registered
+      
+      window.electronAPI.invoke('widget:toggle', widgetEnabled).catch(console.error)
+    }
+  }, [initialized])
 
   // Evening nudge system (10pm) - check every minute
   useEffect(() => {

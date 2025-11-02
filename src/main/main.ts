@@ -187,28 +187,51 @@ function showWidget(): void {
 }
 
 /**
+ * Destroy tray icon (if it exists)
+ */
+function destroyTray(): void {
+  if (tray) {
+    tray.destroy()
+    tray = null
+    console.log('Tray icon destroyed')
+  }
+}
+
+/**
  * Create tray icon (menu bar)
  */
 function createTray(): void {
+  // Don't create if already exists
+  if (tray) {
+    console.log('🟡 Tray already exists, skipping creation')
+    return
+  }
+  
+  console.log('🟢 Creating tray icon...')
+  console.log('Current __dirname:', __dirname)
+  console.log('Current process.cwd():', process.cwd())
   // Try multiple possible paths for the icon
   // Prefer white/template icon for better menu bar appearance
   const possiblePaths = [
-    // Development: from dist/main/ to assets/
-    path.join(__dirname, '../../assets/tray-icon-white.png'),
+    // Try regular icon first (colored, more visible)
     path.join(__dirname, '../../assets/tray-icon.png'),
-    // Alternative: absolute path from project root
-    path.join(process.cwd(), 'assets', 'tray-icon-white.png'),
     path.join(process.cwd(), 'assets', 'tray-icon.png'),
+    // Then try white icon (template, adapts to menu bar)
+    path.join(__dirname, '../../assets/tray-icon-white.png'),
+    path.join(process.cwd(), 'assets', 'tray-icon-white.png'),
     // If built from src/main, go up more levels
-    path.join(__dirname, '../../../assets/tray-icon-white.png'),
     path.join(__dirname, '../../../assets/tray-icon.png'),
+    path.join(__dirname, '../../../assets/tray-icon-white.png'),
   ]
 
   let iconPath: string | null = null
+  console.log('Searching for tray icon in paths:')
   for (const possiblePath of possiblePaths) {
-    if (fs.existsSync(possiblePath)) {
+    const exists = fs.existsSync(possiblePath)
+    console.log(`  ${exists ? '✅' : '❌'} ${possiblePath}`)
+    if (exists) {
       iconPath = possiblePath
-      console.log('Found tray icon at:', iconPath)
+      console.log('✅ Found tray icon at:', iconPath)
       break
     }
   }
@@ -243,30 +266,61 @@ function createTray(): void {
           if (isWhiteIcon) {
             try {
               icon.setTemplateImage(true)
-              console.log('Icon set as template for macOS menu bar')
+              console.log('✅ Icon set as template for macOS menu bar')
             } catch (e) {
-              console.warn('Could not set icon as template:', e)
+              console.warn('⚠️ Could not set icon as template:', e)
             }
           } else {
             // For colored icons, don't set as template (will show as-is)
-            console.log('Using colored icon (not template)')
+            console.log('✅ Using colored icon (not template)')
           }
         }
+        
+        // DEBUG: Icon details for troubleshooting
+        console.log('🔍 Icon details:', {
+          isEmpty: icon.isEmpty(),
+          size: icon.getSize(),
+          isTemplate: icon.isTemplateImage(),
+        })
       }
     } catch (error) {
       console.error('Error loading icon:', error)
       icon = createFallbackIcon()
     }
   } else {
-    console.warn('Tray icon not found at any path, using fallback')
+    console.warn('⚠️ Tray icon not found at any path, using fallback')
     icon = createFallbackIcon()
   }
 
-  tray = new Tray(icon)
+  try {
+    tray = new Tray(icon)
+    console.log('✅ Tray object created')
+  } catch (error) {
+    console.error('❌ Failed to create Tray object:', error)
+    return
+  }
   
   // Set tooltip
-  tray.setToolTip('Stoic Mirror')
+  tray.setToolTip('Stoic Mirror - Click to open widget')
   tray.setIgnoreDoubleClickEvents(true)
+  
+  // Force tray to be visible - sometimes macOS hides it
+  // Try setting context menu immediately to make it "active"
+  try {
+    // Create a minimal context menu to ensure tray appears
+    const tempMenu = Menu.buildFromTemplate([
+      { label: 'Loading...', enabled: false }
+    ])
+    // On macOS, setting context menu can help make tray visible
+    if (process.platform === 'darwin') {
+      // Don't set it as default menu, but the tray should still be visible
+      console.log('✅ Tray configured for macOS')
+    } else {
+      tray.setContextMenu(tempMenu)
+    }
+  } catch (e) {
+    console.warn('⚠️ Could not set temporary menu:', e)
+  }
   
   // On macOS: left-click opens widget, right-click shows menu
   // Don't set context menu by default - handle clicks separately
@@ -328,7 +382,54 @@ function createTray(): void {
     tray.setContextMenu(contextMenu)
   }
   
-  console.log('Tray icon created successfully')
+  console.log('✅ Tray icon created successfully and should be visible in menu bar')
+  
+  // Verify tray is actually visible
+  try {
+    const bounds = tray.getBounds()
+    console.log('✅ Tray bounds:', bounds)
+    console.log('✅ Tray tooltip: Stoic Mirror - Click to open widget')
+    
+    // Additional debugging info
+    if (bounds.width === 0 || bounds.height === 0) {
+      console.warn('⚠️ WARNING: Tray bounds show zero size - tray might not be visible!')
+      console.warn('⚠️ This usually means macOS is hiding the icon or menu bar is full')
+      console.warn('⚠️ Try: System Preferences > Dock & Menu Bar > Check menu bar visibility')
+    }
+    
+    // Try to ensure tray is displayed - refresh icon
+    console.log('🔍 Attempting to ensure tray visibility...')
+    try {
+      tray.setImage(icon)
+      console.log('✅ Tray icon refreshed')
+    } catch (e) {
+      console.warn('⚠️ Could not refresh tray icon:', e)
+    }
+    
+    // Alternative: If template icon isn't visible, try non-template
+    if (icon.isTemplateImage() && (bounds.width === 0 || bounds.height === 0)) {
+      console.log('⚠️ Template icon may not be visible, trying non-template fallback...')
+      try {
+        const regularIconPath = iconPath?.replace('tray-icon-white.png', 'tray-icon.png') || 
+                                path.join(__dirname, '../../assets/tray-icon.png')
+        if (fs.existsSync(regularIconPath)) {
+          const regularIcon = nativeImage.createFromPath(regularIconPath)
+          if (!regularIcon.isEmpty()) {
+            const regSize = regularIcon.getSize()
+            const finalIcon = (regSize.width > 32 || regSize.height > 32) 
+              ? regularIcon.resize({ width: 22, height: 22 })
+              : regularIcon
+            tray.setImage(finalIcon)
+            console.log('✅ Switched to non-template icon for better visibility')
+          }
+        }
+      } catch (e) {
+        console.warn('⚠️ Could not switch to non-template icon:', e)
+      }
+    }
+  } catch (error) {
+    console.error('❌ Error getting tray info:', error)
+  }
 }
 
 /**
@@ -450,6 +551,56 @@ function setupIpcHandlers(): void {
     console.log('Quick action:', action)
     // Handle quick actions here if needed
   })
+  
+  // Widget toggle handler
+  ipcMain.handle('widget:toggle', (_, enabled: boolean) => {
+    console.log('📱 Widget toggle requested:', enabled)
+    if (enabled) {
+      // Ensure tray exists
+      if (!tray) {
+        console.log('✅ Creating tray (widget enabled)')
+        createTray()
+      } else {
+        console.log('✅ Tray already exists (widget enabled)')
+      }
+    } else {
+      // Only destroy if explicitly disabled
+      if (tray) {
+        console.log('❌ Destroying tray (widget disabled)')
+        tray.destroy()
+        tray = null
+        // Also close widget window if open
+        if (widgetWindow && !widgetWindow.isDestroyed()) {
+          widgetWindow.close()
+        }
+      }
+    }
+  })
+  
+  // Debug handler - send tray status to renderer
+  ipcMain.handle('tray:status', () => {
+    try {
+      const status = {
+        exists: !!tray,
+        isDestroyed: tray ? tray.isDestroyed() : true,
+        tooltip: tray ? 'Stoic Mirror' : null, // Tooltip is set during creation
+        bounds: tray && !tray.isDestroyed() ? tray.getBounds() : null,
+      }
+      console.log('📱 Tray status requested, returning:', status)
+      return status
+    } catch (error) {
+      console.error('❌ Error getting tray status:', error)
+      return {
+        exists: false,
+        isDestroyed: true,
+        tooltip: null,
+        bounds: null,
+        error: error instanceof Error ? error.message : String(error),
+      }
+    }
+  })
+  
+  console.log('✅ All IPC handlers registered, including tray:status')
 }
 
 // Set app name (overrides Electron default)
@@ -457,8 +608,23 @@ app.setName('Stoic Mirror')
 
 // App lifecycle
 app.whenReady().then(() => {
+  console.log('🚀 App ready, initializing...')
+  console.log('Platform:', process.platform)
+  console.log('isDev:', isDev)
+  console.log('isPackaged:', app.isPackaged)
+  
+  // IMPORTANT: Set up IPC handlers FIRST before creating windows
+  // This ensures handlers are registered before renderer tries to use them
+  console.log('📡 Setting up IPC handlers...')
   setupIpcHandlers()
-  createTray() // Create tray icon first (app starts in menu bar)
+  console.log('✅ IPC handlers setup complete')
+  
+  // Always create tray icon on startup (default enabled)
+  // Settings sync will handle disabling it if needed
+  console.log('📱 Creating tray icon...')
+  createTray()
+  console.log('✅ Tray creation completed')
+  
   // Don't create main window on startup - start with tray only
   // Main window will open when user clicks "Open Stoic Mirror" in context menu
 
