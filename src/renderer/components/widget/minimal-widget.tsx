@@ -5,6 +5,10 @@ import { useToastStore } from '../toasts'
 import { useSettingsStore } from '../../lib/settings-store'
 import { getAIProvider, getAIProviderWithFallback, type AIConfig } from '../../lib/ai-providers'
 import { useState, useEffect, useMemo } from 'react'
+import { HourglassIcon } from '../icons/hourglass-icon'
+import { ScrollIcon } from '../icons/scroll-icon'
+import { CheckmarkIcon } from '../icons/checkmark-icon'
+import { WidgetIcon } from '../icons/widget-icon'
 
 type WidgetTab = 'schedule' | 'tasks' | 'journal'
 
@@ -235,7 +239,10 @@ export function MinimalWidget() {
       
       {/* Header */}
       <div className="flex items-center justify-between mb-3 relative z-10">
-        <h2 className="text-lg font-semibold">Stoic Mirror</h2>
+        <div className="flex items-center gap-2">
+          <WidgetIcon size={20} className="" />
+          <h2 className="text-lg font-semibold">Stoic Mirror</h2>
+        </div>
         <button
           onClick={handleClose}
           className="text-muted-foreground hover:text-foreground transition-colors text-xl leading-none"
@@ -249,33 +256,36 @@ export function MinimalWidget() {
       <div className="flex gap-1 mb-4 border-b border-border/30 relative z-10">
         <button
           onClick={() => setActiveTab('schedule')}
-          className={`flex-1 py-2 text-xs font-medium transition-colors border-b-2 ${
+          className={`flex-1 py-2 text-xs font-medium transition-colors border-b-2 flex items-center justify-center gap-1 ${
             activeTab === 'schedule'
               ? 'border-primary text-primary'
               : 'border-transparent text-muted-foreground hover:text-foreground'
           }`}
         >
-          Schedule
+          <HourglassIcon size={14} />
+          <span>Schedule</span>
         </button>
         <button
           onClick={() => setActiveTab('tasks')}
-          className={`flex-1 py-2 text-xs font-medium transition-colors border-b-2 ${
+          className={`flex-1 py-2 text-xs font-medium transition-colors border-b-2 flex items-center justify-center gap-1 ${
             activeTab === 'tasks'
               ? 'border-primary text-primary'
               : 'border-transparent text-muted-foreground hover:text-foreground'
           }`}
         >
-          Tasks {remainingTasks > 0 && `(${remainingTasks})`}
+          <CheckmarkIcon size={14} />
+          <span>Tasks {remainingTasks > 0 && `(${remainingTasks})`}</span>
         </button>
         <button
           onClick={() => setActiveTab('journal')}
-          className={`flex-1 py-2 text-xs font-medium transition-colors border-b-2 ${
+          className={`flex-1 py-2 text-xs font-medium transition-colors border-b-2 flex items-center justify-center gap-1 ${
             activeTab === 'journal'
               ? 'border-primary text-primary'
               : 'border-transparent text-muted-foreground hover:text-foreground'
           }`}
         >
-          Journal
+          <ScrollIcon size={14} />
+          <span>Journal</span>
         </button>
       </div>
 

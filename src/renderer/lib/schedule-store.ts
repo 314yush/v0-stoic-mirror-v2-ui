@@ -67,12 +67,13 @@ export const useScheduleStore = create<ScheduleState>()(
           set({
             commits: get().commits.map((c) => (c.date === commitDate ? commit : c)),
           })
+          // Update existing commit in Supabase
+          syncScheduleCommit(commit, "update").catch(console.error)
         } else {
           set({ commits: [commit, ...get().commits] })
+          // Insert new commit to Supabase
+          syncScheduleCommit(commit, "insert").catch(console.error)
         }
-        
-        // Sync to Supabase in background
-        syncScheduleCommit(commit).catch(console.error)
       },
       clearToday: () => {
         const today = new Date().toISOString().split("T")[0]

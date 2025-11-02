@@ -1,6 +1,8 @@
 {
   "name": "stoic-mirror",
   "version": "0.1.0",
+  "description": "A mindful productivity app inspired by Stoic philosophy (Marcus Aurelius, Epictetus, Seneca) for daily routines, reflective journaling, and purposeful task management",
+  "author": "Stoic Mirror Team",
   "private": true,
   "type": "module",
   "main": "dist/main/main.cjs",
@@ -12,6 +14,7 @@
     "build:preload": "tsc -p tsconfig.preload.json && node -e \"require('fs').renameSync('dist/preload/preload.js', 'dist/preload/preload.cjs')\"",
     "build:electron": "npm run build && npm run build:main && npm run build:preload",
     "build:app": "npm run build:electron && electron-builder",
+    "generate:icons": "bash scripts/convert-icon-ico.sh",
     "preview": "vite preview"
   },
   "dependencies": {

@@ -13,8 +13,12 @@ interface DayTimelineProps {
   onAddBlock: (block: Omit<TimeBlock, "id">) => void
 }
 
-const HOURS = Array.from({ length: 24 }, (_, i) => i) // 12am to 11pm (all 24 hours)
+// Show hours from early morning to late night (6am to 11pm for typical day view)
+const START_HOUR = 6
+const END_HOUR = 23
+const HOURS = Array.from({ length: END_HOUR - START_HOUR + 1 }, (_, i) => i + START_HOUR)
 const PIXELS_PER_HOUR = 60
+const TOTAL_HEIGHT = (END_HOUR - START_HOUR + 1) * PIXELS_PER_HOUR
 
 function timeToMinutes(time: string): number {
   const [hours, minutes] = time.split(":").map(Number)
@@ -33,10 +37,17 @@ function getMinutesFromPosition(y: number): number {
   return Math.round(minutesFromTop / 15) * 15
 }
 
-function getTimeFromPosition(y: number, hour: number): string {
-  const minutesInHour = getMinutesFromPosition(y)
-  const totalMinutes = hour * 60 + minutesInHour
+function getTimeFromPosition(y: number, startHour: number = START_HOUR): string {
+  const minutesFromTop = (y / PIXELS_PER_HOUR) * 60
+  const totalMinutes = startHour * 60 + minutesFromTop
   return minutesToTime(totalMinutes)
+}
+
+function timeToPosition(time: string, startHour: number = START_HOUR): number {
+  const minutes = timeToMinutes(time)
+  const startMinutes = startHour * 60
+  const offsetMinutes = minutes - startMinutes
+  return (offsetMinutes / 60) * PIXELS_PER_HOUR
 }
 
 export function DayTimeline({ blocks, onUpdateBlock, onDeleteBlock, onAddBlock }: DayTimelineProps) {
@@ -89,57 +100,49 @@ export function DayTimeline({ blocks, onUpdateBlock, onDeleteBlock, onAddBlock }
     return () => window.removeEventListener("keydown", handleKeyDown)
   }, [selectedBlocks, onDeleteBlock])
 
-  const handleMouseDownOnSlot = (e: React.MouseEvent, hour: number) => {
+  const handleMouseDownOnTimeline = (e: React.MouseEvent) => {
     if (e.button !== 0) return // Only left click
     const rect = (e.currentTarget as HTMLElement).getBoundingClientRect()
     const y = e.clientY - rect.top
+    // Calculate which hour this is in
+    const hour = Math.floor(y / PIXELS_PER_HOUR) + START_HOUR
     setDragging({ type: "create", hourSlot: hour, startY: y })
-    setPreviewBlock({ hour, startY: y, currentY: y })
+    setPreviewBlock({ hour: START_HOUR, startY: y, currentY: y })
   }
 
   const handleMouseMove = (e: MouseEvent) => {
     if (!timelineRef.current) return
-
+    
+    const rect = timelineRef.current.getBoundingClientRect()
+    const currentY = e.clientY - rect.top
+    
     if (dragging?.type === "create" && previewBlock) {
-      const hourRow = timelineRef.current.querySelector(`[data-hour="${previewBlock.hour}"]`) as HTMLElement
-      if (hourRow) {
-        const rect = hourRow.getBoundingClientRect()
-        const y = e.clientY - rect.top
-        setPreviewBlock({ ...previewBlock, currentY: y })
-      }
+      setPreviewBlock({ ...previewBlock, currentY })
     } else if (dragging) {
-      const hourRow = timelineRef.current.querySelector(`[data-hour="${dragging.hourSlot}"]`) as HTMLElement
-      if (hourRow) {
-        const rect = hourRow.getBoundingClientRect()
-        const currentY = e.clientY - rect.top
-
-        if (dragging.type === "create") {
-          // Preview the block being created
-        } else if (dragging.type === "move" && dragging.blockId) {
-          const block = blocks.find((b) => b.id === dragging.blockId)
-          if (block) {
-            const startMinutes = timeToMinutes(block.start)
-            const duration = timeToMinutes(block.end) - startMinutes
-            const newStartMinutes = getMinutesFromPosition(currentY) + dragging.hourSlot * 60
-            const newStart = minutesToTime(newStartMinutes)
-            const newEnd = minutesToTime(newStartMinutes + duration)
-            onUpdateBlock(dragging.blockId, { start: newStart, end: newEnd })
+      if (dragging.type === "move" && dragging.blockId) {
+        const block = blocks.find((b) => b.id === dragging.blockId)
+        if (block) {
+          const startMinutes = timeToMinutes(block.start)
+          const duration = timeToMinutes(block.end) - startMinutes
+          const newStartMinutes = START_HOUR * 60 + getMinutesFromPosition(currentY)
+          const newStart = minutesToTime(newStartMinutes)
+          const newEnd = minutesToTime(newStartMinutes + duration)
+          onUpdateBlock(dragging.blockId, { start: newStart, end: newEnd })
+        }
+      } else if (dragging.type === "resize-start" && dragging.blockId) {
+        const block = blocks.find((b) => b.id === dragging.blockId)
+        if (block && dragging.originalEnd) {
+          const newStart = getTimeFromPosition(currentY)
+          if (timeToMinutes(newStart) < timeToMinutes(dragging.originalEnd)) {
+            onUpdateBlock(dragging.blockId, { start: newStart })
           }
-        } else if (dragging.type === "resize-start" && dragging.blockId) {
-          const block = blocks.find((b) => b.id === dragging.blockId)
-          if (block && dragging.originalEnd) {
-            const newStart = getTimeFromPosition(currentY, dragging.hourSlot)
-            if (timeToMinutes(newStart) < timeToMinutes(dragging.originalEnd)) {
-              onUpdateBlock(dragging.blockId, { start: newStart })
-            }
-          }
-        } else if (dragging.type === "resize-end" && dragging.blockId) {
-          const block = blocks.find((b) => b.id === dragging.blockId)
-          if (block && dragging.originalStart) {
-            const newEnd = getTimeFromPosition(currentY, dragging.hourSlot)
-            if (timeToMinutes(newEnd) > timeToMinutes(dragging.originalStart)) {
-              onUpdateBlock(dragging.blockId, { end: newEnd })
-            }
+        }
+      } else if (dragging.type === "resize-end" && dragging.blockId) {
+        const block = blocks.find((b) => b.id === dragging.blockId)
+        if (block && dragging.originalStart) {
+          const newEnd = getTimeFromPosition(currentY)
+          if (timeToMinutes(newEnd) > timeToMinutes(dragging.originalStart)) {
+            onUpdateBlock(dragging.blockId, { end: newEnd })
           }
         }
       }
@@ -150,8 +153,8 @@ export function DayTimeline({ blocks, onUpdateBlock, onDeleteBlock, onAddBlock }
     if (dragging?.type === "create" && previewBlock) {
       const startY = Math.min(previewBlock.startY, previewBlock.currentY)
       const endY = Math.max(previewBlock.startY, previewBlock.currentY)
-      const start = getTimeFromPosition(startY, previewBlock.hour)
-      const end = getTimeFromPosition(endY, previewBlock.hour)
+      const start = getTimeFromPosition(startY)
+      const end = getTimeFromPosition(endY)
 
       if (timeToMinutes(end) > timeToMinutes(start)) {
         onAddBlock({
@@ -200,13 +203,12 @@ export function DayTimeline({ blocks, onUpdateBlock, onDeleteBlock, onAddBlock }
 
     // Start dragging
     const block = blocks.find((b) => b.id === blockId)
-    if (block) {
-      const rect = (e.currentTarget as HTMLElement).getBoundingClientRect()
+    if (block && timelineRef.current) {
+      const rect = timelineRef.current.getBoundingClientRect()
       const y = e.clientY - rect.top
-      const hour = Number.parseInt(block.start.split(":")[0])
       setDragging({
         type: "move",
-        hourSlot: hour,
+        hourSlot: START_HOUR,
         startY: y,
         blockId,
         originalStart: block.start,
@@ -218,13 +220,12 @@ export function DayTimeline({ blocks, onUpdateBlock, onDeleteBlock, onAddBlock }
   const handleResizeHandleMouseDown = (e: React.MouseEvent, blockId: string, type: "resize-start" | "resize-end") => {
     e.stopPropagation()
     const block = blocks.find((b) => b.id === blockId)
-    if (block) {
-      const rect = (e.currentTarget as HTMLElement).getBoundingClientRect()
+    if (block && timelineRef.current) {
+      const rect = timelineRef.current.getBoundingClientRect()
       const y = e.clientY - rect.top
-      const hour = Number.parseInt(block.start.split(":")[0])
       setDragging({
         type,
-        hourSlot: hour,
+        hourSlot: START_HOUR,
         startY: y,
         blockId,
         originalStart: block.start,
@@ -235,7 +236,36 @@ export function DayTimeline({ blocks, onUpdateBlock, onDeleteBlock, onAddBlock }
 
   const handleContextMenu = (e: React.MouseEvent, blockId: string) => {
     e.preventDefault()
-    setContextMenu({ blockId, x: e.clientX, y: e.clientY })
+    e.stopPropagation()
+    
+    // Get menu dimensions (estimated)
+    const menuWidth = 192 // w-48 = 192px
+    const menuHeight = 120 // Approximate height
+    const padding = 8
+    
+    // Calculate position to avoid overlapping blocks and screen edges
+    let x = e.clientX
+    let y = e.clientY
+    
+    // Prefer positioning to the right, but adjust if too close to edge
+    if (x + menuWidth + padding > window.innerWidth) {
+      x = e.clientX - menuWidth - padding
+    } else {
+      x = e.clientX + padding
+    }
+    
+    // Prefer positioning below, but adjust if too close to bottom
+    if (y + menuHeight + padding > window.innerHeight) {
+      y = e.clientY - menuHeight - padding
+    } else {
+      y = e.clientY + padding
+    }
+    
+    // Ensure menu stays within viewport
+    x = Math.max(padding, Math.min(x, window.innerWidth - menuWidth - padding))
+    y = Math.max(padding, Math.min(y, window.innerHeight - menuHeight - padding))
+    
+    setContextMenu({ blockId, x, y })
   }
 
   const handleExtend15 = (blockId: string) => {
@@ -282,16 +312,20 @@ export function DayTimeline({ blocks, onUpdateBlock, onDeleteBlock, onAddBlock }
     const currentHour = now.getHours()
     const currentMinute = now.getMinutes()
     
-    // All hours are now visible (12am to 11pm)
-    // Find which hour row this time falls in
-    const hourIndex = currentHour // Hour index is now 0-23 directly
-    const minutesInHour = currentMinute
-    const topOffset = (minutesInHour / 60) * PIXELS_PER_HOUR
+    // Check if current time is within visible range
+    if (currentHour < START_HOUR || currentHour > END_HOUR) {
+      return null
+    }
+    
+    const totalMinutes = currentHour * 60 + currentMinute
+    const startMinutes = START_HOUR * 60
+    const offsetMinutes = totalMinutes - startMinutes
+    const topOffset = (offsetMinutes / 60) * PIXELS_PER_HOUR
     
     return {
-      hourIndex,
       topOffset,
       hour: currentHour,
+      minute: currentMinute,
     }
   }
 
@@ -305,144 +339,172 @@ export function DayTimeline({ blocks, onUpdateBlock, onDeleteBlock, onAddBlock }
     return currentTime >= blockEndTime
   }
 
+  // Filter blocks that are visible in the timeline range
+  const visibleBlocks = blocks.filter((block) => {
+    const startMinutes = timeToMinutes(block.start)
+    const endMinutes = timeToMinutes(block.end)
+    const blockStartHour = Math.floor(startMinutes / 60)
+    const blockEndHour = Math.floor(endMinutes / 60)
+    // Show block if it overlaps with visible time range
+    return blockEndHour >= START_HOUR && blockStartHour <= END_HOUR
+  })
+
   return (
     <>
       <div ref={timelineRef} className="relative timeline-grid rounded-lg border border-border bg-card p-4">
-        <div className="space-y-3">
-          {HOURS.map((hour, hourIndex) => {
-            const hourBlocks = blocks.filter((block) => {
-              const startHour = Number.parseInt(block.start.split(":")[0])
-              return startHour === hour
-            })
-
-            const isCurrentHour = currentTimePos && currentTimePos.hourIndex === hourIndex
-
-            return (
-              <div key={hour} data-hour={hour} className="flex items-start gap-3 min-h-[60px]">
-                <div className="w-16 text-sm text-muted-foreground pt-1 shrink-0">
+        <div className="flex gap-3">
+          {/* Hour labels on the left */}
+          <div className="w-16 shrink-0 space-y-0">
+            {HOURS.map((hour) => {
+              const hourPosition = (hour - START_HOUR) * PIXELS_PER_HOUR
+              return (
+                <div
+                  key={hour}
+                  className="absolute text-sm text-muted-foreground pt-1"
+                  style={{
+                    top: `${hourPosition}px`,
+                  }}
+                >
                   {hour === 0 ? "12am" : hour < 12 ? `${hour}am` : hour === 12 ? "12pm" : `${hour - 12}pm`}
                 </div>
+              )
+            })}
+          </div>
+          
+          {/* Timeline area */}
+          <div
+            className="flex-1 relative cursor-crosshair overflow-visible"
+            style={{ height: `${TOTAL_HEIGHT}px`, minHeight: `${TOTAL_HEIGHT}px` }}
+            onMouseDown={handleMouseDownOnTimeline}
+          >
+            {/* Hour indicator lines only */}
+            {HOURS.map((hour) => {
+              const hourPosition = (hour - START_HOUR) * PIXELS_PER_HOUR
+              return (
                 <div
-                  className="flex-1 relative cursor-crosshair overflow-visible"
-                  onMouseDown={(e) => handleMouseDownOnSlot(e, hour)}
+                  key={hour}
+                  className="absolute left-0 right-0 border-t border-border/40"
+                  style={{
+                    top: `${hourPosition}px`,
+                    borderTopWidth: '0.5px',
+                  }}
+                />
+              )
+            })}
+            
+            {/* Current time indicator - red line */}
+            {currentTimePos && (
+              <div
+                className="absolute left-0 right-0 z-50"
+                style={{
+                  top: `${currentTimePos.topOffset}px`,
+                }}
+              >
+                <div className="absolute left-0 right-0 h-0.5 bg-red-500" />
+                <div className="absolute left-0 top-1/2 -translate-y-1/2 w-2 h-2 bg-red-500 rounded-full -ml-1" />
+              </div>
+            )}
+            
+            {/* Preview block being created */}
+            {previewBlock && (
+              <div
+                className="absolute left-0 right-0 bg-primary/10 border-2 border-dashed border-primary rounded-md z-20"
+                style={{
+                  top: `${Math.min(previewBlock.startY, previewBlock.currentY)}px`,
+                  height: `${Math.abs(previewBlock.currentY - previewBlock.startY)}px`,
+                }}
+              />
+            )}
+
+            {/* Render all blocks */}
+            {visibleBlocks.map((block) => {
+              const startMinutes = timeToMinutes(block.start)
+              const endMinutes = timeToMinutes(block.end)
+              const duration = endMinutes - startMinutes
+              
+              // Calculate absolute positions from timeline start (6am = 0px)
+              const top = timeToPosition(block.start)
+              // Height should exactly match the duration - no rounding errors
+              const height = (duration / 60) * PIXELS_PER_HOUR
+              
+              
+              const isSelected = selectedBlocks.has(block.id)
+
+              return (
+                <div
+                  key={block.id}
+                  onMouseDown={(e) => handleBlockMouseDown(e, block.id)}
+                  onContextMenu={(e) => handleContextMenu(e, block.id)}
+                  className={`absolute left-0 right-0 rounded-md px-3 py-2 transition-all z-10 ${
+                    isSelected
+                      ? "ring-2 ring-primary ring-offset-1"
+                      : block.optional
+                        ? "bg-[rgba(243,244,246,0.3)] dark:bg-[rgba(31,41,55,0.3)] border border-dashed border-border hover:bg-[rgba(243,244,246,0.4)] dark:hover:bg-[rgba(31,41,55,0.4)]"
+                        : "bg-[rgba(34,197,94,0.3)] dark:bg-[rgba(34,197,94,0.3)] border border-primary/50 hover:bg-[rgba(34,197,94,0.4)] dark:hover:bg-[rgba(34,197,94,0.4)] dark:border-primary/60"
+                  } ${isSelected ? "cursor-grabbing" : "cursor-grab"}`}
+                  style={{
+                    top: `${top}px`,
+                    height: `${Math.max(height, 30)}px`,
+                    minHeight: "30px",
+                    // Ensure block extends to exact end position
+                    maxHeight: "none",
+                  }}
                 >
-                  {/* Grid lines for easier resizing */}
-                  <div className="absolute inset-0 pointer-events-none">
-                    {/* Hour marker line (at top of each hour slot) */}
-                    <div className="absolute left-0 right-0 top-0 h-[1px] bg-border/60" />
-                    {/* Half-hour marker line (lighter, at 30px = 30 minutes) */}
-                    <div className="absolute left-0 right-0 top-[30px] h-[1px] bg-border/30" />
-                    
-                    {/* Current time indicator - red line */}
-                    {isCurrentHour && (
-                      <div
-                        className="absolute left-0 right-0 z-50"
-                        style={{
-                          top: `${currentTimePos.topOffset}px`,
-                        }}
-                      >
-                        <div className="absolute left-0 right-0 h-1 bg-red-500" />
-                        <div className="absolute left-0 top-1/2 -translate-y-1/2 w-3 h-3 bg-red-500 rounded-full -ml-1.5" />
+                  {/* Resize handles */}
+                  <div
+                    className="absolute top-0 left-0 right-0 h-2 cursor-ns-resize hover:bg-primary/30"
+                    onMouseDown={(e) => handleResizeHandleMouseDown(e, block.id, "resize-start")}
+                  />
+                  <div
+                    className="absolute bottom-0 left-0 right-0 h-2 cursor-ns-resize hover:bg-primary/30"
+                    onMouseDown={(e) => handleResizeHandleMouseDown(e, block.id, "resize-end")}
+                  />
+
+                  <div className="flex items-start justify-between h-full gap-2">
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm font-medium text-foreground truncate">{block.identity}</p>
+                      <p className="text-xs text-muted-foreground">
+                        {block.start} - {block.end} ({getBlockDuration(block.start, block.end)})
+                      </p>
+                    </div>
+                    {/* Completion buttons - only show after block end time */}
+                    {isBlockPastEndTime(block) && (
+                      <div className="flex items-center gap-1 shrink-0" onClick={(e) => e.stopPropagation()}>
+                        <button
+                          onClick={() => {
+                            updateBlockCompletion(block.id, true)
+                            onUpdateBlock(block.id, { completed: true })
+                            addToast(`"${block.identity}" marked as completed`, "success")
+                          }}
+                          className={`px-3 py-1.5 text-xs font-medium rounded transition-all ${
+                            block.completed === true
+                              ? "bg-green-500/20 text-green-400 border-2 border-green-500/50 shadow-sm"
+                              : "bg-secondary text-muted-foreground hover:text-foreground hover:bg-secondary/80 border border-border"
+                          }`}
+                        >
+                          {block.completed === true ? "✓ Yes" : "Yes"}
+                        </button>
+                        <button
+                          onClick={() => {
+                            updateBlockCompletion(block.id, false)
+                            onUpdateBlock(block.id, { completed: false })
+                            addToast(`"${block.identity}" marked as not completed`, "info")
+                          }}
+                          className={`px-3 py-1.5 text-xs font-medium rounded transition-all ${
+                            block.completed === false
+                              ? "bg-red-500/20 text-red-400 border-2 border-red-500/50 shadow-sm"
+                              : "bg-secondary text-muted-foreground hover:text-foreground hover:bg-secondary/80 border border-border"
+                          }`}
+                        >
+                          {block.completed === false ? "✗ No" : "No"}
+                        </button>
                       </div>
                     )}
                   </div>
-                  {/* Preview block being created */}
-                  {previewBlock?.hour === hour && (
-                    <div
-                      className="absolute left-0 right-0 bg-primary/10 border-2 border-dashed border-primary rounded-md"
-                      style={{
-                        top: `${Math.min(previewBlock.startY, previewBlock.currentY)}px`,
-                        height: `${Math.abs(previewBlock.currentY - previewBlock.startY)}px`,
-                      }}
-                    />
-                  )}
-
-                  {hourBlocks.map((block) => {
-                    const startMinutes = timeToMinutes(block.start)
-                    const endMinutes = timeToMinutes(block.end)
-                    const duration = endMinutes - startMinutes
-                    const startOffset = (startMinutes - hour * 60) / 60
-                    const height = (duration / 60) * PIXELS_PER_HOUR
-                    const isSelected = selectedBlocks.has(block.id)
-
-                    return (
-                      <div
-                        key={block.id}
-                        onMouseDown={(e) => handleBlockMouseDown(e, block.id)}
-                        onContextMenu={(e) => handleContextMenu(e, block.id)}
-                        className={`absolute left-0 right-0 rounded-md px-3 py-2 transition-all z-10 ${
-                          isSelected
-                            ? "ring-2 ring-primary ring-offset-1"
-                            : block.optional
-                              ? "bg-secondary/50 border border-dashed border-border hover:bg-secondary/70"
-                              : "bg-primary/20 border border-primary/50 hover:bg-primary/30"
-                        } ${isSelected ? "cursor-grabbing" : "cursor-grab"}`}
-                        style={{
-                          top: `${startOffset * PIXELS_PER_HOUR}px`,
-                          height: `${height}px`,
-                          minHeight: "30px",
-                        }}
-                      >
-                        {/* Resize handles */}
-                        <div
-                          className="absolute top-0 left-0 right-0 h-2 cursor-ns-resize hover:bg-primary/30"
-                          onMouseDown={(e) => handleResizeHandleMouseDown(e, block.id, "resize-start")}
-                        />
-                        <div
-                          className="absolute bottom-0 left-0 right-0 h-2 cursor-ns-resize hover:bg-primary/30"
-                          onMouseDown={(e) => handleResizeHandleMouseDown(e, block.id, "resize-end")}
-                        />
-
-                        <div className="flex items-start justify-between h-full gap-2">
-                          <div className="flex-1 min-w-0">
-                            <p className="text-sm font-medium text-foreground truncate">{block.identity}</p>
-                            <p className="text-xs text-muted-foreground">
-                              {block.start} - {block.end} ({getBlockDuration(block.start, block.end)})
-                            </p>
-                          </div>
-                          {/* Completion buttons - only show after block end time */}
-                          {isBlockPastEndTime(block) && (
-                            <div className="flex items-center gap-1 shrink-0" onClick={(e) => e.stopPropagation()}>
-                              <button
-                                onClick={() => {
-                                  updateBlockCompletion(block.id, true)
-                                  // Also update local state to trigger re-render
-                                  onUpdateBlock(block.id, { completed: true })
-                                  addToast(`"${block.identity}" marked as completed`, "success")
-                                }}
-                                className={`px-3 py-1.5 text-xs font-medium rounded transition-all ${
-                                  block.completed === true
-                                    ? "bg-green-500/20 text-green-400 border-2 border-green-500/50 shadow-sm"
-                                    : "bg-secondary text-muted-foreground hover:text-foreground hover:bg-secondary/80 border border-border"
-                                }`}
-                              >
-                                {block.completed === true ? "✓ Yes" : "Yes"}
-                              </button>
-                              <button
-                                onClick={() => {
-                                  updateBlockCompletion(block.id, false)
-                                  // Also update local state to trigger re-render
-                                  onUpdateBlock(block.id, { completed: false })
-                                  addToast(`"${block.identity}" marked as not completed`, "info")
-                                }}
-                                className={`px-3 py-1.5 text-xs font-medium rounded transition-all ${
-                                  block.completed === false
-                                    ? "bg-red-500/20 text-red-400 border-2 border-red-500/50 shadow-sm"
-                                    : "bg-secondary text-muted-foreground hover:text-foreground hover:bg-secondary/80 border border-border"
-                                }`}
-                              >
-                                {block.completed === false ? "✗ No" : "No"}
-                              </button>
-                            </div>
-                          )}
-                        </div>
-                      </div>
-                    )
-                  })}
                 </div>
-              </div>
-            )
-          })}
+              )
+            })}
+          </div>
         </div>
 
         {selectedBlocks.size > 0 && (
@@ -454,31 +516,57 @@ export function DayTimeline({ blocks, onUpdateBlock, onDeleteBlock, onAddBlock }
 
       {contextMenu && (
         <>
-          <div className="fixed inset-0 z-40" onClick={() => setContextMenu(null)} />
+          <div 
+            className="fixed inset-0 z-40" 
+            onClick={() => setContextMenu(null)}
+            onContextMenu={(e) => {
+              e.preventDefault()
+              setContextMenu(null)
+            }}
+          />
           <div
-            className="fixed z-50 w-48 bg-popover border border-border rounded-lg shadow-lg py-1"
-            style={{ left: contextMenu.x, top: contextMenu.y }}
+            className="fixed z-50 w-48 bg-popover/95 backdrop-blur-sm border border-border rounded-lg shadow-xl py-1.5 animate-in fade-in zoom-in-95"
+            style={{ 
+              left: `${contextMenu.x}px`, 
+              top: `${contextMenu.y}px`,
+            }}
           >
             <button
-              onClick={() => handleExtend15(contextMenu.blockId)}
-              className="w-full px-3 py-2 text-left text-sm text-foreground hover:bg-secondary transition-colors"
+              onClick={() => {
+                handleExtend15(contextMenu.blockId)
+                setContextMenu(null)
+              }}
+              className="w-full px-4 py-2.5 text-left text-sm font-medium text-foreground hover:bg-accent/50 transition-colors flex items-center gap-2"
             >
-              Extend 15m
+              <span className="text-base">⏱️</span>
+              <span>Extend 15m</span>
             </button>
             <button
-              onClick={() => handleToggleOptional(contextMenu.blockId)}
-              className="w-full px-3 py-2 text-left text-sm text-foreground hover:bg-secondary transition-colors"
+              onClick={() => {
+                handleToggleOptional(contextMenu.blockId)
+                setContextMenu(null)
+              }}
+              className="w-full px-4 py-2.5 text-left text-sm font-medium text-foreground hover:bg-accent/50 transition-colors flex items-center gap-2"
             >
-              {blocks.find((b) => b.id === contextMenu.blockId)?.optional
-                ? "Mark as Necessary"
-                : "Mark as Optional"}
+              <span className="text-base">
+                {blocks.find((b) => b.id === contextMenu.blockId)?.optional ? "✓" : "○"}
+              </span>
+              <span>
+                {blocks.find((b) => b.id === contextMenu.blockId)?.optional
+                  ? "Mark as Necessary"
+                  : "Mark as Optional"}
+              </span>
             </button>
-            <div className="my-1 border-t border-border" />
+            <div className="my-1.5 border-t border-border/50" />
             <button
-              onClick={() => handleDelete(contextMenu.blockId)}
-              className="w-full px-3 py-2 text-left text-sm text-destructive hover:bg-destructive/10 transition-colors"
+              onClick={() => {
+                handleDelete(contextMenu.blockId)
+                setContextMenu(null)
+              }}
+              className="w-full px-4 py-2.5 text-left text-sm font-medium text-destructive hover:bg-destructive/10 transition-colors flex items-center gap-2"
             >
-              Delete
+              <span className="text-base">🗑️</span>
+              <span>Delete</span>
             </button>
           </div>
         </>

@@ -52,36 +52,27 @@ export function TodayTab() {
     return () => clearInterval(interval)
   }, [])
 
-  // Load commit for viewing date on mount and when viewing date or store updates
-  useEffect(() => {
-    const currentCommit = getCommitByDate(viewingDateStr)
-    if (currentCommit && currentCommit.blocks.length > 0) {
-      // Only update if the commit actually changed (e.g., completion status updated)
-      const blocksChanged = JSON.stringify(blocks) !== JSON.stringify(currentCommit.blocks)
-      const committedChanged = committed !== currentCommit.committed
-      
-      if (blocksChanged || committedChanged) {
-        setBlocks(currentCommit.blocks)
-        setCommitted(currentCommit.committed)
-        if (currentCommit.committed_at) {
-          setCommitTime(new Date(currentCommit.committed_at).toLocaleTimeString())
-        }
-      }
-    } else if (!currentCommit && blocks.length > 0 && committed) {
-      // Commit was deleted from store
-      setBlocks([])
-      setCommitted(false)
-      setCommitTime(null)
-    }
-  }, [commits, viewingDateStr, getCommitByDate]) // Re-run when commits array or viewing date changes
-
-  // Reset blocks when switching dates
+  // Load commit from store when viewing date or commits change
+  // This is the single source of truth for what to display
   useEffect(() => {
     const commit = getCommitByDate(viewingDateStr)
-    setBlocks(commit?.blocks || [])
-    setCommitted(commit?.committed || false)
-    setCommitTime(commit?.committed_at ? new Date(commit.committed_at).toLocaleTimeString() : null)
-  }, [viewingDateStr, getCommitByDate])
+    
+    if (commit) {
+      // Load the commit - always sync with store (even if already committed)
+      setBlocks(commit.blocks)
+      setCommitted(commit.committed)
+      setCommitTime(commit.committed_at ? new Date(commit.committed_at).toLocaleTimeString() : null)
+    } else {
+      // No commit found for this date - clear the form
+      // Only clear if we're not currently editing (avoid clearing user input)
+      if (commits.length > 0 || blocks.length === 0) {
+        setBlocks([])
+        setCommitted(false)
+        setCommitTime(null)
+      }
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [viewingDateStr, commits]) // Re-run when viewing date or commits array changes
 
   const handleUseRoutine = (preset: "weekday" | "weekend") => {
     setBlocks(preset === "weekday" ? [...WEEKDAY_PRESET] : [...WEEKEND_PRESET])
@@ -91,7 +82,20 @@ export function TodayTab() {
   }
 
   const handleUseYesterday = () => {
-    addToast("Yesterday's schedule loaded")
+    const yesterday = new Date()
+    yesterday.setDate(yesterday.getDate() - 1)
+    const yesterdayStr = yesterday.toISOString().split("T")[0]
+    const yesterdayCommit = getCommitByDate(yesterdayStr)
+    
+    if (yesterdayCommit && yesterdayCommit.blocks.length > 0) {
+      // Load yesterday's blocks but don't mark as committed (user can edit)
+      setBlocks(yesterdayCommit.blocks.map(b => ({ ...b, completed: null }))) // Reset completion status
+      setCommitted(false) // Allow editing
+      setCommitTime(null)
+      addToast("Yesterday's schedule loaded")
+    } else {
+      addToast("No schedule found for yesterday", "error")
+    }
   }
 
   const handleClearDay = () => {

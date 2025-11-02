@@ -33,7 +33,8 @@ export function QuickAddBlock({ onAdd, onCancel }: QuickAddBlockProps) {
           value={identity}
           onChange={(e) => setIdentity(e.target.value)}
           placeholder="e.g., Deep Work, Exercise"
-          className="w-full px-3 py-2 bg-input border border-border rounded-md text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring"
+          className="w-full px-3 py-2 bg-input border border-border rounded-md placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring"
+          style={{ color: 'var(--color-foreground)' }}
           autoFocus
         />
       </div>
@@ -44,7 +45,8 @@ export function QuickAddBlock({ onAdd, onCancel }: QuickAddBlockProps) {
             type="time"
             value={start}
             onChange={(e) => setStart(e.target.value)}
-            className="w-full px-3 py-2 bg-input border border-border rounded-md text-foreground focus:outline-none focus:ring-2 focus:ring-ring"
+            className="w-full px-3 py-2 bg-input border border-border rounded-md focus:outline-none focus:ring-2 focus:ring-ring"
+            style={{ color: 'var(--color-foreground)' }}
           />
         </div>
         <div>
@@ -53,7 +55,8 @@ export function QuickAddBlock({ onAdd, onCancel }: QuickAddBlockProps) {
             type="time"
             value={end}
             onChange={(e) => setEnd(e.target.value)}
-            className="w-full px-3 py-2 bg-input border border-border rounded-md text-foreground focus:outline-none focus:ring-2 focus:ring-ring"
+            className="w-full px-3 py-2 bg-input border border-border rounded-md focus:outline-none focus:ring-2 focus:ring-ring"
+            style={{ color: 'var(--color-foreground)' }}
           />
         </div>
       </div>

@@ -48,11 +48,11 @@ export function Toasts({ isWidget = false }: { isWidget?: boolean }) {
   const widgetMode = isWidget || isWidgetMode
 
   return (
-    <div className={`${widgetMode ? 'fixed bottom-2 left-2 right-2 z-50' : 'fixed top-4 right-4 z-50'} flex flex-col gap-2 ${widgetMode ? 'w-auto' : 'w-80'}`}>
+    <div className={`${widgetMode ? 'fixed bottom-2 left-2 right-2 z-50' : 'fixed bottom-4 right-4 z-50'} flex flex-col gap-2 ${widgetMode ? 'w-auto' : 'w-80'}`}>
       {toasts.map((toast) => (
         <div
           key={toast.id}
-          className={`${widgetMode ? 'px-2 py-1.5 text-xs' : 'px-4 py-3'} rounded-lg shadow-lg border animate-in slide-in-from-right ${
+          className={`${widgetMode ? 'px-2 py-1.5 text-xs' : 'px-4 py-3'} rounded-lg shadow-lg border animate-in slide-in-from-bottom ${
             toast.type === "error"
               ? "bg-destructive/10 border-destructive text-destructive"
               : toast.type === "info"

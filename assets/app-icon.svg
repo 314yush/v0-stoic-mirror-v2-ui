@@ -1,0 +1,31 @@
+<svg width="512" height="512" viewBox="0 0 512 512" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <linearGradient id="bronzeGradient" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" style="stop-color:#D4AF37;stop-opacity:1" />
+      <stop offset="50%" style="stop-color:#8B7355;stop-opacity:1" />
+      <stop offset="100%" style="stop-color:#6B5D4F;stop-opacity:1" />
+    </linearGradient>
+  </defs>
+  
+  <!-- Background circle -->
+  <circle cx="256" cy="256" r="240" fill="url(#bronzeGradient)" opacity="0.9"/>
+  
+  <!-- Classical philosopher bust silhouette (head and shoulders) -->
+  <!-- Head -->
+  <ellipse cx="256" cy="180" rx="90" ry="100" fill="#4A3A2F"/>
+  
+  <!-- Neck -->
+  <rect x="240" y="260" width="32" height="40" fill="#4A3A2F" rx="4"/>
+  
+  <!-- Shoulders/torso -->
+  <path d="M 180 300 Q 180 320 200 340 L 312 340 Q 332 320 332 300 Z" fill="#4A3A2F"/>
+  
+  <!-- Mirror reflection at bottom -->
+  <ellipse cx="256" cy="420" rx="140" ry="40" fill="#4A3A2F" opacity="0.4"/>
+  
+  <!-- Classical column base -->
+  <rect x="220" y="380" width="72" height="24" fill="#4A3A2F" opacity="0.6" rx="2"/>
+  
+  <!-- Highlight on head (philosophy/light) -->
+  <ellipse cx="240" cy="160" rx="30" ry="35" fill="#8B7355" opacity="0.6"/>
+</svg>

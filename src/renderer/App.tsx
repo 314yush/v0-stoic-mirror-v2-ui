@@ -13,6 +13,13 @@ import { useAuthStore } from "./lib/auth-store"
 import { useThemeStore } from "./lib/theme-store"
 import { useToastStore } from "./components/toasts"
 import { checkNudgeTime, hasBeenNudgedToday, markNudged, snoozeNudge } from "./lib/nudge-service"
+import { OnboardingModal } from "./components/onboarding/onboarding-modal"
+import { useOnboardingStore } from "./lib/onboarding-store"
+
+// Import debug utilities (only in dev mode)
+if (import.meta.env.DEV) {
+  import("./lib/debug-backend")
+}
 
 type Tab = "today" | "journal" | "weekly" | "tasks"
 
@@ -40,6 +47,7 @@ export default function App() {
   const { user, loading, initialized, initialize } = useAuthStore()
   const { theme } = useThemeStore()
   const { addToast } = useToastStore()
+  const { hasCompletedOnboarding, setOnboardingComplete } = useOnboardingStore()
 
   // Apply theme to document - Tailwind uses "dark" class for dark mode
   useEffect(() => {
@@ -149,6 +157,10 @@ export default function App() {
         {activeTab === "weekly" && <WeeklyTab />}
         {activeTab === "tasks" && <TasksTab />}
       </AppShell>
+      <OnboardingModal 
+        isOpen={user && !hasCompletedOnboarding} 
+        onComplete={setOnboardingComplete} 
+      />
       <Toasts />
       <NetworkStatus />
     </ErrorBoundary>

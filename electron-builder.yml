@@ -1,5 +1,5 @@
-appId: com.mindfulos.app
-productName: Mindful OS
+appId: com.stoicmirror.app
+productName: Stoic Mirror
 directories:
   output: release
   buildResources: build
@@ -11,14 +11,18 @@ mac:
   target:
     - target: default
       arch:
-        - x64
-        - arm64
+        - universal
   icon: build/icon.icns
   entitlements: null
   entitlementsInherit: null
+  hardenedRuntime: false
+  gatekeeperAssess: false
+  identity: null
 win:
   target: nsis
+  icon: build/icon.ico
 linux:
   target: AppImage
+  icon: build/icon.png
 
 

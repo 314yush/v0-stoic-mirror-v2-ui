@@ -108,7 +108,7 @@ export function TasksTab() {
 
   return (
     <div className="h-full flex flex-col">
-      <div className="border-b border-border px-6 py-4 pt-8">
+      <div className="border-b border-border px-6 py-4 pt-12">
         <div className="mb-4">
           <h2 className="text-xl font-semibold text-foreground mb-2">Tasks</h2>
           <p className="text-sm text-muted-foreground">

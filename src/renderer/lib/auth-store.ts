@@ -98,10 +98,39 @@ export const useAuthStore = create<AuthState>()(
         const newFromSupabase = journalEntries.filter((e) => !localJournalIds.has(e.id))
         journalStore.setEntries([...journalStore.entries, ...newFromSupabase])
         
-        // Merge schedule commits (local takes precedence)
-        const localScheduleDates = new Set(scheduleStore.commits.map((c) => c.date))
-        const newSchedules = scheduleCommits.filter((c) => !localScheduleDates.has(c.date))
-        scheduleStore.setCommits([...scheduleStore.commits, ...newSchedules])
+        // Merge schedule commits (local takes precedence, but merge in new/updated from Supabase)
+        // Create a map of local commits by date for quick lookup
+        const localCommitMap = new Map(scheduleStore.commits.map(c => [c.date, c]))
+        const supabaseCommitMap = new Map(scheduleCommits.map(c => [c.date, c]))
+        
+        // Start with local commits (they take precedence)
+        const mergedCommits = [...scheduleStore.commits]
+        
+        // Add or update commits from Supabase that don't exist locally or are newer
+        scheduleCommits.forEach(supabaseCommit => {
+          const localCommit = localCommitMap.get(supabaseCommit.date)
+          if (!localCommit) {
+            // New commit from Supabase - add it
+            mergedCommits.push(supabaseCommit)
+          } else {
+            // Compare timestamps - use newer one
+            const localTime = new Date(localCommit.committed_at || 0).getTime()
+            const supabaseTime = new Date(supabaseCommit.committed_at || 0).getTime()
+            
+            if (supabaseTime > localTime) {
+              // Supabase version is newer - replace local
+              const index = mergedCommits.findIndex(c => c.date === supabaseCommit.date)
+              if (index !== -1) {
+                mergedCommits[index] = supabaseCommit
+              }
+            }
+            // Otherwise keep local (it's newer or same)
+          }
+        })
+        
+        // Sort by date descending (most recent first)
+        mergedCommits.sort((a, b) => b.date.localeCompare(a.date))
+        scheduleStore.setCommits(mergedCommits)
         
         // Merge tasks (local takes precedence for same ID)
         const localTaskIds = new Set(tasksStore.tasks.map((t) => t.id))

@@ -1,6 +1,8 @@
 # Stoic Mirror
 
-A mindful productivity app for daily routines, journaling, and task management with AI-powered insights. Built with React, TypeScript, Electron, and Supabase.
+A mindful productivity app inspired by the wisdom of Marcus Aurelius, Epictetus, and Seneca. Designed for daily routines, reflective journaling, and purposeful task management with AI-powered insights. Built with React, TypeScript, Electron, and Supabase.
+
+> "You have power over your mind—not outside events. Realize this, and you will find strength." — Marcus Aurelius
 
 ## Features
 

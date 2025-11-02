@@ -22,12 +22,16 @@ function createMainWindow(): void {
     minHeight: 400,
     backgroundColor: '#1a1a1a', // Dark theme default
     titleBarStyle: 'hiddenInset', // macOS native title bar
+    title: 'Stoic Mirror', // Set window title
     webPreferences: {
       nodeIntegration: false,
       contextIsolation: true,
       preload: path.join(__dirname, '../preload/preload.cjs'),
     },
     show: false, // Don't show until ready
+    icon: isDev 
+      ? path.join(__dirname, '../../assets/icon.ico')
+      : undefined, // Use bundled icon in production
   })
 
   // Load the app
@@ -117,6 +121,9 @@ function createWidgetWindow(): void {
     hasShadow: true,
     backgroundColor: '#00000000', // Fully transparent - let CSS handle glass effect
     vibrancy: process.platform === 'darwin' ? 'under-window' : undefined, // macOS blur effect - under-window for better glass effect
+    icon: isDev 
+      ? path.join(__dirname, '../../assets/icon.ico')
+      : undefined, // Use bundled icon in production
     webPreferences: {
       nodeIntegration: false,
       contextIsolation: true,
@@ -184,12 +191,16 @@ function showWidget(): void {
  */
 function createTray(): void {
   // Try multiple possible paths for the icon
+  // Prefer white/template icon for better menu bar appearance
   const possiblePaths = [
     // Development: from dist/main/ to assets/
+    path.join(__dirname, '../../assets/tray-icon-white.png'),
     path.join(__dirname, '../../assets/tray-icon.png'),
     // Alternative: absolute path from project root
+    path.join(process.cwd(), 'assets', 'tray-icon-white.png'),
     path.join(process.cwd(), 'assets', 'tray-icon.png'),
     // If built from src/main, go up more levels
+    path.join(__dirname, '../../../assets/tray-icon-white.png'),
     path.join(__dirname, '../../../assets/tray-icon.png'),
   ]
 
@@ -225,13 +236,20 @@ function createTray(): void {
         
         // On macOS, tray icons should be template images (monochrome white/transparent)
         // Template images adapt to light/dark menu bars
-        // Note: Colored icons won't work well as templates, but we'll try
+        // Only set as template if it's a white/transparent icon
         if (process.platform === 'darwin') {
-          try {
-            icon.setTemplateImage(true)
-            console.log('Icon set as template for macOS menu bar')
-          } catch (e) {
-            console.warn('Could not set icon as template:', e)
+          // Check if we're using the white icon (better for templates)
+          const isWhiteIcon = iconPath && iconPath.includes('tray-icon-white')
+          if (isWhiteIcon) {
+            try {
+              icon.setTemplateImage(true)
+              console.log('Icon set as template for macOS menu bar')
+            } catch (e) {
+              console.warn('Could not set icon as template:', e)
+            }
+          } else {
+            // For colored icons, don't set as template (will show as-is)
+            console.log('Using colored icon (not template)')
           }
         }
       }
@@ -315,31 +333,56 @@ function createTray(): void {
 
 /**
  * Create a fallback icon programmatically
+ * Creates a simple philosopher bust silhouette for menu bar (white, template-compatible)
  */
 function createFallbackIcon(): Electron.NativeImage {
-  // Create a simple 16x16 icon with a circle/dot
-  const size = 16
+  // Create a 22x22 icon (optimal for macOS menu bar)
+  const size = 22
   const canvas = Buffer.alloc(size * size * 4) // RGBA
   
-  // Draw a simple circle (for macOS menu bar)
-  const center = size / 2
-  const radius = 5
+  // Draw a simple philosopher bust silhouette (white on transparent)
+  const centerX = size / 2
+  const headY = 7
+  const headRadius = 4
+  const neckWidth = 3
+  const neckHeight = 4
+  const shouldersY = size - 3
   
   for (let y = 0; y < size; y++) {
     for (let x = 0; x < size; x++) {
       const idx = (y * size + x) * 4
-      const dx = x - center
-      const dy = y - center
-      const dist = Math.sqrt(dx * dx + dy * dy)
+      const dx = x - centerX
+      const dy = y - headY
       
-      if (dist <= radius) {
-        // White circle with alpha
-        canvas[idx] = 255     // R
+      // Head (circle)
+      const headDist = Math.sqrt(dx * dx + dy * dy)
+      if (headDist <= headRadius) {
+        canvas[idx] = 255     // R (white)
         canvas[idx + 1] = 255 // G
         canvas[idx + 2] = 255 // B
-        canvas[idx + 3] = 255 // A
-      } else {
-        // Transparent
+        canvas[idx + 3] = 255 // A (fully opaque)
+      }
+      // Neck (rectangle)
+      else if (y >= headY + headRadius && y < headY + headRadius + neckHeight) {
+        if (Math.abs(dx) <= neckWidth / 2) {
+          canvas[idx] = 255
+          canvas[idx + 1] = 255
+          canvas[idx + 2] = 255
+          canvas[idx + 3] = 255
+        }
+      }
+      // Shoulders (trapezoid)
+      else if (y >= headY + headRadius + neckHeight && y < shouldersY) {
+        const shoulderWidth = 6 - ((y - (headY + headRadius + neckHeight)) * 1.5) / (shouldersY - (headY + headRadius + neckHeight))
+        if (Math.abs(dx) <= shoulderWidth / 2) {
+          canvas[idx] = 255
+          canvas[idx + 1] = 255
+          canvas[idx + 2] = 255
+          canvas[idx + 3] = 255
+        }
+      }
+      // Transparent background
+      else {
         canvas[idx] = 0
         canvas[idx + 1] = 0
         canvas[idx + 2] = 0
@@ -408,6 +451,9 @@ function setupIpcHandlers(): void {
     // Handle quick actions here if needed
   })
 }
+
+// Set app name (overrides Electron default)
+app.setName('Stoic Mirror')
 
 // App lifecycle
 app.whenReady().then(() => {

@@ -2,7 +2,11 @@ import { useState, useEffect } from "react"
 import { useSettingsStore } from "../lib/settings-store"
 import { useThemeStore } from "../lib/theme-store"
 import { useToastStore } from "./toasts"
+import { useAuthStore } from "../lib/auth-store"
 import { validateOllamaUrl } from "../lib/url-validation"
+import { getSetupStatus, testOllamaConnection } from "../lib/setup-detection"
+import { isSupabaseConfigured } from "../lib/supabase"
+import type { SetupStatus } from "../lib/setup-detection"
 
 interface SettingsModalProps {
   isOpen: boolean
@@ -13,13 +17,54 @@ export function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
   const { settings, updateSettings } = useSettingsStore()
   const { theme, setTheme } = useThemeStore()
   const { addToast } = useToastStore()
+  const { pullAndMergeData } = useAuthStore()
   const [localSettings, setLocalSettings] = useState(settings)
+  const [setupStatus, setSetupStatus] = useState<SetupStatus | null>(null)
+  const [checkingOllama, setCheckingOllama] = useState(false)
+  const [syncing, setSyncing] = useState(false)
 
   useEffect(() => {
     if (isOpen) {
       setLocalSettings(settings)
+      // Auto-detect Ollama when settings open
+      getSetupStatus().then(setSetupStatus)
     }
   }, [isOpen, settings])
+
+  const handleTestOllama = async () => {
+    setCheckingOllama(true)
+    const url = localSettings.ollamaUrl || "http://localhost:11434"
+    const result = await testOllamaConnection(url)
+    setCheckingOllama(false)
+    
+    if (result.success) {
+      addToast("✅ Ollama is running!", "success")
+    } else {
+      addToast(result.error || "❌ Cannot connect to Ollama", "error")
+    }
+    
+    // Refresh status
+    setTimeout(() => getSetupStatus().then(setSetupStatus), 500)
+  }
+
+  const handleSyncNow = async () => {
+    if (!isSupabaseConfigured()) {
+      addToast("Supabase not configured - cannot sync", "error")
+      return
+    }
+    
+    setSyncing(true)
+    try {
+      await pullAndMergeData()
+      addToast("✅ Data synced from server", "success")
+      await getSetupStatus().then(setSetupStatus) // Refresh status
+    } catch (error) {
+      console.error("Sync error:", error)
+      addToast("❌ Sync failed - check console for details", "error")
+    } finally {
+      setSyncing(false)
+    }
+  }
 
   if (!isOpen) return null
 
@@ -62,6 +107,51 @@ export function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
         </div>
 
         <div className="p-6 space-y-6">
+          {/* Setup Status Overview */}
+          <div className="border border-border rounded-lg p-4 space-y-3 bg-secondary/20">
+            <div className="flex items-center justify-between mb-3">
+              <h3 className="font-semibold text-foreground text-sm">Setup Status</h3>
+              {isSupabaseConfigured() && (
+                <button
+                  onClick={handleSyncNow}
+                  disabled={syncing}
+                  className="btn btn-xs btn-secondary"
+                  title="Sync data from server"
+                >
+                  {syncing ? "Syncing..." : "🔄 Sync Now"}
+                </button>
+              )}
+            </div>
+            
+            {/* Supabase */}
+            <div className="flex items-center justify-between text-sm">
+              <span className="text-muted-foreground">Backend (Supabase):</span>
+              <span className={isSupabaseConfigured() ? "text-primary font-medium" : "text-muted-foreground"}>
+                {isSupabaseConfigured() ? "✅ Configured" : "⚠️ Not Set"}
+              </span>
+            </div>
+
+            {/* Ollama */}
+            {setupStatus && (
+              <div className="flex items-center justify-between text-sm">
+                <span className="text-muted-foreground">AI (Ollama):</span>
+                <span className={setupStatus.ollama.running ? "text-primary font-medium" : "text-muted-foreground"}>
+                  {setupStatus.ollama.running ? "✅ Running" : "⚠️ Not Running"}
+                </span>
+              </div>
+            )}
+
+            {/* Gemini */}
+            {setupStatus && (
+              <div className="flex items-center justify-between text-sm">
+                <span className="text-muted-foreground">AI (Gemini):</span>
+                <span className={setupStatus.gemini.configured ? "text-primary font-medium" : "text-muted-foreground"}>
+                  {setupStatus.gemini.configured ? "✅ Configured" : "⚠️ Not Set"}
+                </span>
+              </div>
+            )}
+          </div>
+
           {/* Theme Toggle */}
           <div>
             <label className="block text-sm font-medium text-foreground mb-3">Theme</label>
@@ -143,9 +233,24 @@ export function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
                   placeholder="http://localhost:11434"
                   className="input"
                 />
-                <p className="text-xs text-muted-foreground mt-2">
-                  Must be localhost or 127.0.0.1 (local only for security)
-                </p>
+                <div className="flex items-center justify-between mt-2">
+                  <p className="text-xs text-muted-foreground">
+                    Must be localhost or 127.0.0.1 (local only for security)
+                  </p>
+                  <button
+                    type="button"
+                    onClick={handleTestOllama}
+                    disabled={checkingOllama}
+                    className="btn btn-xs btn-secondary"
+                  >
+                    {checkingOllama ? "Checking..." : "Test Connection"}
+                  </button>
+                </div>
+                {setupStatus && !setupStatus.ollama.running && (
+                  <p className="text-xs text-primary mt-1">
+                    💡 Tip: Install Ollama from <a href="https://ollama.ai" target="_blank" rel="noopener noreferrer" className="underline">ollama.ai</a> and run <code className="bg-secondary px-1 rounded">ollama serve</code>
+                  </p>
+                )}
               </div>
 
               <div>
