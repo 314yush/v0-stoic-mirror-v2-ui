@@ -177,7 +177,7 @@ export function MinimalWidget() {
         } else {
           return {
             provider: "gemini",
-            apiKey: settings.geminiApiKey || import.meta.env.VITE_GEMINI_API_KEY || "",
+            apiKey: settings.geminiApiKey || "",
             model: "gemini-2.5-flash",
           }
         }
@@ -185,7 +185,7 @@ export function MinimalWidget() {
 
       const fallbackConfig: AIConfig = {
         provider: "gemini",
-        apiKey: settings.geminiApiKey || import.meta.env.VITE_GEMINI_API_KEY || "",
+        apiKey: settings.geminiApiKey || "",
         model: "gemini-2.5-flash",
       }
 

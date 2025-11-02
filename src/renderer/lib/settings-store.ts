@@ -38,7 +38,7 @@ export const useSettingsStore = create<SettingsState>()(
         aiProvider: "ollama",
         ollamaUrl: "http://localhost:11434",
         ollamaModel: "llama3.2:1b",
-        geminiApiKey: import.meta.env.VITE_GEMINI_API_KEY || "",
+        geminiApiKey: "", // Users must enter their own API key - never bundle keys
         theme: "dark",
       },
       updateSettings: (updates) => {

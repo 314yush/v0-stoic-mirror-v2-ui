@@ -33,7 +33,7 @@ export function ChatInterface({ onSaveEntry }: ChatInterfaceProps) {
       // Default to Gemini
       return {
         provider: "gemini",
-        apiKey: settings.geminiApiKey || import.meta.env.VITE_GEMINI_API_KEY || "",
+        apiKey: settings.geminiApiKey || "",
         model: "gemini-2.5-flash", // From official quickstart docs
       }
     }
@@ -42,7 +42,7 @@ export function ChatInterface({ onSaveEntry }: ChatInterfaceProps) {
   // Fallback config (cloud AI when Ollama unavailable) - Use Gemini
   const fallbackConfig: AIConfig = {
     provider: "gemini",
-    apiKey: settings.geminiApiKey || import.meta.env.VITE_GEMINI_API_KEY || "",
+    apiKey: settings.geminiApiKey || "",
     model: "gemini-2.5-flash", // From official quickstart docs
   }
   
