@@ -94,12 +94,13 @@ export function HeatmapGrid() {
   }, [commits])
 
   const getColorClass = (score: number) => {
-    if (score === 0) return "bg-secondary/50"
-    if (score < 20) return "bg-emerald-500/20"
-    if (score < 40) return "bg-emerald-500/40"
-    if (score < 60) return "bg-emerald-500/60"
-    if (score < 80) return "bg-emerald-500/80"
-    return "bg-emerald-500"
+    // Use explicit RGBA for better visibility in both light and dark modes
+    if (score === 0) return "bg-[rgba(243,244,246,0.3)] dark:bg-[rgba(31,41,55,0.3)]"
+    if (score < 20) return "bg-[rgba(16,185,129,0.2)]"
+    if (score < 40) return "bg-[rgba(16,185,129,0.4)]"
+    if (score < 60) return "bg-[rgba(16,185,129,0.6)]"
+    if (score < 80) return "bg-[rgba(16,185,129,0.8)]"
+    return "bg-[rgba(16,185,129,1)]"
   }
 
   const getRingClass = (score: number) => {
@@ -279,23 +280,23 @@ export function HeatmapGrid() {
 
         <div className="flex items-center gap-3 text-xs">
           <div className="flex items-center gap-1.5">
-            <div className="w-2 h-2 rounded-sm bg-emerald-500" />
+            <div className="w-2 h-2 rounded-sm bg-[rgba(16,185,129,1)]" />
             <span className="text-muted-foreground">80-100%</span>
           </div>
           <div className="flex items-center gap-1.5">
-            <div className="w-2 h-2 rounded-sm bg-emerald-500/60" />
+            <div className="w-2 h-2 rounded-sm bg-[rgba(16,185,129,0.6)]" />
             <span className="text-muted-foreground">60-79%</span>
           </div>
           <div className="flex items-center gap-1.5">
-            <div className="w-2 h-2 rounded-sm bg-emerald-500/40" />
+            <div className="w-2 h-2 rounded-sm bg-[rgba(16,185,129,0.4)]" />
             <span className="text-muted-foreground">40-59%</span>
           </div>
           <div className="flex items-center gap-1.5">
-            <div className="w-2 h-2 rounded-sm bg-emerald-500/20" />
+            <div className="w-2 h-2 rounded-sm bg-[rgba(16,185,129,0.2)]" />
             <span className="text-muted-foreground">1-39%</span>
           </div>
           <div className="flex items-center gap-1.5">
-            <div className="w-2 h-2 rounded-sm bg-secondary/50" />
+            <div className="w-2 h-2 rounded-sm bg-[rgba(243,244,246,0.3)] dark:bg-[rgba(31,41,55,0.3)]" />
             <span className="text-muted-foreground">No data</span>
           </div>
         </div>
