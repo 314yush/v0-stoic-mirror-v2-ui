@@ -1,0 +1,14 @@
+<svg width="22" height="22" viewBox="0 0 512 512" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <!-- White/transparent icon for macOS menu bar (template image) -->
+  <!-- This will show as white on dark menu bar, black on light menu bar -->
+  
+  <!-- Classical philosopher bust silhouette - white -->
+  <!-- Head -->
+  <ellipse cx="256" cy="180" rx="90" ry="100" fill="white"/>
+  
+  <!-- Neck -->
+  <rect x="240" y="260" width="32" height="40" fill="white" rx="4"/>
+  
+  <!-- Shoulders -->
+  <path d="M 180 300 Q 180 320 200 340 L 312 340 Q 332 320 332 300 Z" fill="white"/>
+</svg>

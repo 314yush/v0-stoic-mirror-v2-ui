@@ -1,0 +1,33 @@
+appId: com.stoicmirror.app
+productName: Stoic Mirror
+directories:
+  output: release
+  buildResources: build
+files:
+  - dist/**/*
+  - package.json
+publish:
+  provider: github
+  owner: 314yush
+  repo: v0-stoic-mirror-v2-ui
+  releaseType: release
+mac:
+  category: public.app-category.productivity
+  target:
+    - target: default
+      arch:
+        - universal
+  icon: build/icon.icns
+  entitlements: null
+  entitlementsInherit: null
+  hardenedRuntime: false
+  gatekeeperAssess: false
+  identity: null
+win:
+  target: nsis
+  icon: build/icon.ico
+linux:
+  target: AppImage
+  icon: build/icon.png
+
+
