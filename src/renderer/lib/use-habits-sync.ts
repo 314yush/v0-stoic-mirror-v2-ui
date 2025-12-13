@@ -8,14 +8,14 @@ import { useEffect, useRef } from "react"
 import { useAuthStore } from "./auth-store"
 import { useHabitsStore } from "./habits-store"
 import { fetchHabitsFromSupabase, fetchCompletionsFromSupabase } from "./habits-sync-service"
-import { getTodayDateStrLocal } from "./date-utils"
+import { getTodayDateStrLocal, getDateStrLocal } from "./date-utils"
 
 /**
  * Load habits from Supabase on app start
  */
 export function useLoadHabits() {
   const { user } = useAuthStore()
-  const { setHabits, setCompletions, habits } = useHabitsStore()
+  const { setHabits, setCompletions } = useHabitsStore()
   const loadedRef = useRef(false)
 
   useEffect(() => {
@@ -34,12 +34,13 @@ export function useLoadHabits() {
         }
 
         // Fetch completions for last 30 days
+        // IMPORTANT: Use LOCAL timezone for both dates to avoid off-by-one errors
         const today = new Date()
         const thirtyDaysAgo = new Date(today)
         thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30)
         
         const completionsData = await fetchCompletionsFromSupabase(
-          thirtyDaysAgo.toISOString().split('T')[0],
+          getDateStrLocal(thirtyDaysAgo),  // Use local timezone, not UTC
           getTodayDateStrLocal()
         )
         if (completionsData.length > 0) {
