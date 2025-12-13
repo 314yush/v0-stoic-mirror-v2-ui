@@ -17,6 +17,7 @@ import { useSettingsStore } from "./lib/settings-store"
 import { OnboardingModal } from "./components/onboarding/onboarding-modal"
 import { useOnboardingStore } from "./lib/onboarding-store"
 import { useAnalyticsSync, useLoadAnalytics } from "./lib/use-analytics-sync"
+import { useHabitsSync } from "./lib/use-habits-sync"
 
 // Import debug utilities (only in dev mode)
 if (import.meta.env.DEV) {
@@ -55,6 +56,9 @@ export default function App() {
   // Background sync for analytics (Fitbit-like data sync)
   useAnalyticsSync()
   useLoadAnalytics()
+  
+  // Load habits from Supabase
+  useHabitsSync()
 
   // Apply theme to document - Tailwind uses "dark" class for dark mode
   useEffect(() => {
