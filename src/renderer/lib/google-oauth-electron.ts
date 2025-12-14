@@ -136,6 +136,8 @@ export async function revokeAccess(accessToken: string): Promise<void> {
   })
 }
 
+import { storage } from './storage'
+
 /**
  * Storage keys
  */
@@ -165,45 +167,50 @@ export async function getUserInfo(accessToken: string): Promise<{ email: string;
 }
 
 /**
- * Save all accounts to localStorage
+ * Save all accounts to storage
  */
 export function saveAccounts(accounts: GoogleAccount[]): void {
-  localStorage.setItem(ACCOUNTS_STORAGE_KEY, JSON.stringify(accounts))
+  storage.set(ACCOUNTS_STORAGE_KEY, accounts)
 }
 
 /**
- * Load all accounts from localStorage
+ * Load all accounts from storage
  */
 export function loadAccounts(): GoogleAccount[] {
   // Try new format first
-  const stored = localStorage.getItem(ACCOUNTS_STORAGE_KEY)
-  if (stored) {
-    try {
-      return JSON.parse(stored) as GoogleAccount[]
-    } catch {
-      return []
-    }
+  const stored = storage.get<GoogleAccount[]>(ACCOUNTS_STORAGE_KEY)
+  if (stored && stored.length > 0) {
+    return stored
   }
   
-  // Migration: Check for legacy single-account tokens
-  const legacyTokens = localStorage.getItem(TOKENS_STORAGE_KEY)
-  if (legacyTokens) {
-    try {
+  // Migration: Check for legacy localStorage tokens
+  try {
+    const legacyTokens = localStorage.getItem(TOKENS_STORAGE_KEY)
+    if (legacyTokens) {
       const tokens = JSON.parse(legacyTokens) as GoogleTokens
-      // We don't have email for legacy tokens, will be populated on next refresh
       const legacyAccount: GoogleAccount = {
         id: 'legacy',
         email: 'Unknown (reconnect to update)',
         tokens,
         label: 'Primary',
       }
-      // Migrate to new format
       saveAccounts([legacyAccount])
-      localStorage.removeItem(TOKENS_STORAGE_KEY) // Remove legacy
+      localStorage.removeItem(TOKENS_STORAGE_KEY)
       return [legacyAccount]
-    } catch {
-      return []
     }
+    
+    // Also check old localStorage key for migration
+    const oldStored = localStorage.getItem(ACCOUNTS_STORAGE_KEY)
+    if (oldStored) {
+      const accounts = JSON.parse(oldStored) as GoogleAccount[]
+      if (accounts.length > 0) {
+        saveAccounts(accounts) // Migrate to new storage
+        localStorage.removeItem(ACCOUNTS_STORAGE_KEY)
+        return accounts
+      }
+    }
+  } catch {
+    // Ignore migration errors
   }
   
   return []
@@ -244,7 +251,7 @@ export function getAccount(email: string): GoogleAccount | null {
  * Clear all accounts
  */
 export function clearAllAccounts(): void {
-  localStorage.removeItem(ACCOUNTS_STORAGE_KEY)
+  storage.remove(ACCOUNTS_STORAGE_KEY)
   localStorage.removeItem(TOKENS_STORAGE_KEY) // Also clear legacy
 }
 
