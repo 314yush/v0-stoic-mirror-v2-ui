@@ -120,8 +120,13 @@ export function OnboardingModal({ isOpen, onComplete }: OnboardingModalProps) {
   }
 
   const saveRoutineNames = () => {
+    const existingGoals = useSettingsStore.getState().settings.userGoals
     const userGoals: UserGoals = {
-      ...useSettingsStore.getState().settings.userGoals,
+      northStar: existingGoals?.northStar,
+      lifestyle: existingGoals?.lifestyle || [],
+      preferences: existingGoals?.preferences || [],
+      otherLifestyle: existingGoals?.otherLifestyle,
+      otherPreferences: existingGoals?.otherPreferences,
       routineNames: routineNames.length > 0 ? routineNames : [],
     }
     updateSettings({ userGoals })

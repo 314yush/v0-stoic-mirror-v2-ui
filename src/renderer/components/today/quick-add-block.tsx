@@ -2,7 +2,7 @@
 import type React from "react"
 
 import { useState } from "react"
-import type { TimeBlock } from "./today-tab"
+import type { TimeBlock } from "../../lib/schedule-store"
 
 interface QuickAddBlockProps {
   onAdd: (block: Omit<TimeBlock, "id">) => void

@@ -1,6 +1,6 @@
 
 import { useState, useEffect, useMemo } from "react"
-import { DayTimeline, type CalendarEvent } from "./day-timeline"
+import { DayTimeline } from "./day-timeline"
 import { CalendarView } from "./calendar-view"
 import { QuickAddBlock } from "./quick-add-block"
 import { NaturalLanguageInput } from "./natural-language-input"
@@ -14,8 +14,7 @@ import { useScheduleStore, type TimeBlock } from "../../lib/schedule-store"
 import { useSettingsStore } from "../../lib/settings-store"
 import { getEffectiveCommitDate, isDateLocked, getCommitTargetDate, isCommitWindowOpen } from "../../lib/schedule-date-utils"
 import { getTodayDateStrLocal, getDateStrLocal } from "../../lib/date-utils"
-import { loadAccounts } from "../../lib/google-oauth-electron"
-import { importEventsFromAllAccounts, googleEventToTimeRange } from "../../lib/google-calendar-api"
+import { useCachedCalendarEvents, type CalendarEvent } from "../../lib/calendar-cache"
 
 export type ViewMode = 'day' | 'week'
 
@@ -126,9 +125,8 @@ export function TodayTab() {
   const [quickJournalText, setQuickJournalText] = useState("")
   const [currentTime, setCurrentTime] = useState(new Date())
   
-  // Google Calendar events state
-  const [calendarEvents, setCalendarEvents] = useState<CalendarEvent[]>([])
-  const [loadingCalendarEvents, setLoadingCalendarEvents] = useState(false)
+  // Google Calendar events (cached)
+  const { events: calendarEvents, loading: loadingCalendarEvents } = useCachedCalendarEvents(viewingDateStr)
   
   // Undo/Redo history
   const [history, setHistory] = useState<TimeBlock[][]>([])
@@ -268,79 +266,7 @@ export function TodayTab() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [viewingDateStr, commits, settings.commitCutoffTime]) // Removed currentTime from dependencies to prevent refresh while typing
 
-  // Fetch Google Calendar events for the viewing date
-  useEffect(() => {
-    const fetchCalendarEvents = async () => {
-      const accounts = loadAccounts()
-      if (accounts.length === 0) {
-        setCalendarEvents([])
-        return
-      }
-      
-      setLoadingCalendarEvents(true)
-      
-      try {
-        // Create date range for the viewing date (full day)
-        const startDate = new Date(viewingDate)
-        startDate.setHours(0, 0, 0, 0)
-        const endDate = new Date(viewingDate)
-        endDate.setHours(23, 59, 59, 999)
-        
-        const eventsByDate = await importEventsFromAllAccounts(startDate, endDate)
-        const events = eventsByDate.get(viewingDateStr) || []
-        
-        // Convert to CalendarEvent format with rich details
-        const calEvents: CalendarEvent[] = []
-        for (const event of events) {
-          const timeRange = googleEventToTimeRange(event)
-          if (!timeRange) continue // Skip all-day events for now
-          
-          // Extract meeting link from various sources
-          let meetingLink = event.hangoutLink
-          let meetingProvider = meetingLink ? 'Google Meet' : undefined
-          
-          // Check conferenceData for other meeting providers
-          if (event.conferenceData?.entryPoints) {
-            const videoEntry = event.conferenceData.entryPoints.find(
-              ep => ep.entryPointType === 'video'
-            )
-            if (videoEntry) {
-              meetingLink = videoEntry.uri
-              meetingProvider = event.conferenceData.conferenceSolution?.name || 'Video Call'
-            }
-          }
-          
-          calEvents.push({
-            id: event.id,
-            title: event.summary,
-            start: timeRange.start,
-            end: timeRange.end,
-            isAllDay: false,
-            accountEmail: event.accountEmail,
-            accountLabel: event.accountLabel,
-            accountColor: event.accountColor,
-            // Rich details
-            description: event.description,
-            location: event.location,
-            htmlLink: event.htmlLink,
-            meetingLink,
-            meetingProvider,
-            attendees: event.attendees,
-            organizer: event.organizer,
-          })
-        }
-        
-        setCalendarEvents(calEvents)
-      } catch (error) {
-        console.error('Error fetching calendar events:', error)
-        // Don't show error toast - calendar integration is optional
-      } finally {
-        setLoadingCalendarEvents(false)
-      }
-    }
-    
-    fetchCalendarEvents()
-  }, [viewingDateStr, viewingDate])
+  // Calendar events are now fetched via useCachedCalendarEvents hook above
 
   const handleUseRoutine = (preset: "weekday" | "weekend") => {
     setBlocks(preset === "weekday" ? [...WEEKDAY_PRESET] : [...WEEKEND_PRESET])

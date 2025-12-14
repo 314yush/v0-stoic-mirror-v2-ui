@@ -33,9 +33,20 @@ export interface BlockCompletionEvent {
 export function onBlockCompleted(event: BlockCompletionEvent): void {
   const { block, completed, date } = event
   
+  console.log(`[Habit Service] onBlockCompleted called:`, { 
+    blockIdentity: block.identity, 
+    completed, 
+    date 
+  })
+  
   // Get habits from store
   const { habits, setCompletion, getCompletionsForDate } = useHabitsStore.getState()
   const activeHabits = habits.filter(h => h.isActive)
+  
+  console.log(`[Habit Service] Active habits in store:`, activeHabits.map(h => ({ 
+    name: h.name, 
+    identity: h.identity 
+  })))
   
   if (activeHabits.length === 0) {
     console.log("[Habit Service] No active habits, skipping")
@@ -47,6 +58,7 @@ export function onBlockCompleted(event: BlockCompletionEvent): void {
   
   if (!matchedHabit) {
     console.log(`[Habit Service] No habit matched for block identity: "${block.identity}"`)
+    console.log(`[Habit Service] Available habits:`, activeHabits.map(h => `"${h.name}" (identity: "${h.identity}")`))
     return
   }
   

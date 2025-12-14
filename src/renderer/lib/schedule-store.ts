@@ -176,11 +176,14 @@ export const useScheduleStore = create<ScheduleState>()(
       },
       setCommits: (commits) => set({ commits }), // For syncing from Supabase
       updateBlockCompletion: (blockId: string, completed: boolean, date?: string) => {
+        console.log("[Schedule Store] updateBlockCompletion called:", { blockId, completed, date })
         const targetDate = date || getTodayDateStrLocal() // Use LOCAL timezone
         const commit = get().commits.find((c) => c.date === targetDate)
+        console.log("[Schedule Store] Found commit:", commit ? { date: commit.date, blocksCount: commit.blocks.length } : null)
         if (commit) {
           // Find the block being updated
           const block = commit.blocks.find((b) => b.id === blockId)
+          console.log("[Schedule Store] Found block:", block ? { id: block.id, identity: block.identity } : null)
           
           const updatedCommit: DayCommit = {
             ...commit,
@@ -194,11 +197,14 @@ export const useScheduleStore = create<ScheduleState>()(
           
           // Trigger habit completion tracking
           if (block) {
+            console.log("[Schedule Store] Calling onBlockCompleted for block:", block.identity)
             onBlockCompleted({
               block: { ...block, completed },
               completed,
               date: targetDate,
             })
+          } else {
+            console.log("[Schedule Store] Block not found, cannot trigger habit completion")
           }
         }
       },

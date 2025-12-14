@@ -1,8 +1,7 @@
 import { IdentityProgressRings } from "./identity-progress-rings"
-import { RoutineDetection } from "./routine-detection"
-import { WeeklyInsights } from "./weekly-insights"
-import { StreakCard } from "./streak-card"
-import { DailyHabitsGrid } from "../habits/daily-habits-grid"
+import { AutoHabitsGrid } from "./auto-habits-grid"
+import { WeekSummaryCard } from "./week-summary-card"
+import { TimeByIdentity } from "./time-by-identity"
 
 export function WeeklyTab() {
   return (
@@ -10,7 +9,7 @@ export function WeeklyTab() {
       <div className="border-b border-border px-6 py-4 pt-8">
         <h2 className="text-xl font-semibold text-foreground">Weekly Overview</h2>
         <p className="text-xs text-muted-foreground mt-1">
-          Track your habits and progress toward your north star
+          Your last 7 days at a glance
         </p>
       </div>
 
@@ -18,17 +17,14 @@ export function WeeklyTab() {
         {/* Identity Progress Rings */}
         <IdentityProgressRings />
         
-        {/* Daily Habits Grid */}
-        <DailyHabitsGrid />
-
-        {/* Routine Detection */}
-        <RoutineDetection />
-
-        {/* Weekly Insights */}
-        <WeeklyInsights />
-
-        {/* Streak Card */}
-        <StreakCard />
+        {/* Auto-Detected Habits */}
+        <AutoHabitsGrid />
+        
+        {/* Time by Identity */}
+        <TimeByIdentity />
+        
+        {/* Week Summary */}
+        <WeekSummaryCard />
       </div>
     </div>
   )

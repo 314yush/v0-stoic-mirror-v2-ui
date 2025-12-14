@@ -19,7 +19,7 @@ export interface UserSettings {
   ollamaUrl: string
   ollamaModel: string
   geminiApiKey: string
-  theme: "dark" | "light"
+  theme: "dark" | "light" | "system"
   widgetEnabled: boolean
   // Notification settings
   wakeUpTime: string // Format: "HH:MM" (24-hour), e.g. "07:00"

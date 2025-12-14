@@ -43,9 +43,9 @@ export function JournalTab() {
         console.error("Sync error:", syncError)
         const errorMsg = syncError instanceof Error ? syncError.message : "Unknown error"
         if (errorMsg.includes("Network error") || errorMsg.includes("offline")) {
-          addToast("Saved locally. Will sync when online.", "warning")
+          addToast("Saved locally. Will sync when online.", "info")
         } else {
-          addToast("Saved locally. Sync may retry later.", "warning")
+          addToast("Saved locally. Sync may retry later.", "info")
         }
       }
     } catch (error) {

@@ -41,15 +41,16 @@ export function ScheduleInsights({
   const { settings } = useSettingsStore()
   
   // Calculate score
+  const northStarGoals = settings.userGoals?.northStar?.split(',').map((s: string) => s.trim()) || []
   const score = useMemo(() => 
-    scoreSchedule(blocks, calendarEvents, settings.northStarGoals?.split(',').map(s => s.trim())),
-    [blocks, calendarEvents, settings.northStarGoals]
+    scoreSchedule(blocks, calendarEvents, northStarGoals),
+    [blocks, calendarEvents, northStarGoals]
   )
   
   // Generate optimizations
   const optimizations = useMemo(() =>
-    generateOptimizations(blocks, calendarEvents, settings.northStarGoals?.split(',').map(s => s.trim())),
-    [blocks, calendarEvents, settings.northStarGoals]
+    generateOptimizations(blocks, calendarEvents, northStarGoals),
+    [blocks, calendarEvents, northStarGoals]
   )
   
   // Detect conflicts

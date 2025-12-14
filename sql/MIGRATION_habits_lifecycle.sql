@@ -1,9 +1,25 @@
 -- ============================================
 -- MIGRATION: Habit Lifecycle System
 -- ============================================
--- Run this if you already have the base Supabase schema
--- and want to add the habit tracking system
+-- Run this to add habit tracking to your Supabase
+-- Safe to run multiple times (uses IF NOT EXISTS)
 -- ============================================
+
+-- ============================================
+-- 0. PREREQUISITES
+-- ============================================
+
+-- Enable UUID extension (needed for uuid_generate_v4)
+CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
+
+-- Create helper function if it doesn't exist
+CREATE OR REPLACE FUNCTION update_updated_at_column()
+RETURNS TRIGGER AS $$
+BEGIN
+  NEW.updated_at = NOW();
+  RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
 
 -- ============================================
 -- 1. USER HABITS TABLE
@@ -86,6 +102,17 @@ CREATE INDEX IF NOT EXISTS idx_habit_completions_user_habit_date ON habit_comple
 ALTER TABLE user_habits ENABLE ROW LEVEL SECURITY;
 ALTER TABLE habit_completions ENABLE ROW LEVEL SECURITY;
 
+-- Drop existing policies if they exist (safe re-run)
+DROP POLICY IF EXISTS "Users can view own habits" ON user_habits;
+DROP POLICY IF EXISTS "Users can insert own habits" ON user_habits;
+DROP POLICY IF EXISTS "Users can update own habits" ON user_habits;
+DROP POLICY IF EXISTS "Users can delete own habits" ON user_habits;
+
+DROP POLICY IF EXISTS "Users can view own habit completions" ON habit_completions;
+DROP POLICY IF EXISTS "Users can insert own habit completions" ON habit_completions;
+DROP POLICY IF EXISTS "Users can update own habit completions" ON habit_completions;
+DROP POLICY IF EXISTS "Users can delete own habit completions" ON habit_completions;
+
 -- User Habits Policies
 CREATE POLICY "Users can view own habits" ON user_habits FOR SELECT USING (auth.uid() = user_id);
 CREATE POLICY "Users can insert own habits" ON user_habits FOR INSERT WITH CHECK (auth.uid() = user_id);
@@ -99,13 +126,15 @@ CREATE POLICY "Users can update own habit completions" ON habit_completions FOR 
 CREATE POLICY "Users can delete own habit completions" ON habit_completions FOR DELETE USING (auth.uid() = user_id);
 
 -- ============================================
--- 5. TRIGGERS
+-- 5. TRIGGERS (drop and recreate for safe re-run)
 -- ============================================
 
+DROP TRIGGER IF EXISTS update_user_habits_updated_at ON user_habits;
 CREATE TRIGGER update_user_habits_updated_at
   BEFORE UPDATE ON user_habits
   FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
 
+DROP TRIGGER IF EXISTS update_habit_completions_updated_at ON habit_completions;
 CREATE TRIGGER update_habit_completions_updated_at
   BEFORE UPDATE ON habit_completions
   FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
@@ -160,6 +189,11 @@ END;
 $$ LANGUAGE plpgsql;
 
 -- ============================================
+-- VERIFICATION: Run this to confirm setup
+-- ============================================
+-- SELECT table_name FROM information_schema.tables 
+-- WHERE table_schema = 'public' AND table_name IN ('user_habits', 'habit_completions');
+
+-- ============================================
 -- DONE! Habit lifecycle tables are ready
 -- ============================================
-

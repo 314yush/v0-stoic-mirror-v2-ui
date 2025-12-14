@@ -18,10 +18,12 @@ import { OnboardingModal } from "./components/onboarding/onboarding-modal"
 import { useOnboardingStore } from "./lib/onboarding-store"
 import { useAnalyticsSync, useLoadAnalytics } from "./lib/use-analytics-sync"
 import { useHabitsSync } from "./lib/use-habits-sync"
+import { useCalendarCache } from "./lib/calendar-cache"
 
 // Import debug utilities (only in dev mode)
 if (import.meta.env.DEV) {
   import("./lib/debug-backend")
+  import("./lib/seed-test-data")  // Seed test data for auto-habits
 }
 
 type Tab = "today" | "journal" | "weekly" | "tasks"
@@ -59,6 +61,12 @@ export default function App() {
   
   // Load habits from Supabase
   useHabitsSync()
+  
+  // Pre-fetch calendar events on app load
+  const prefetchCalendar = useCalendarCache(state => state.prefetch)
+  useEffect(() => {
+    prefetchCalendar()
+  }, [prefetchCalendar])
 
   // Apply theme to document - Tailwind uses "dark" class for dark mode
   useEffect(() => {

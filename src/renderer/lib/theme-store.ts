@@ -2,10 +2,11 @@ import { create } from "zustand"
 import { persist, createJSONStorage } from "zustand/middleware"
 import { storage } from "./storage"
 
-type Theme = "dark" | "light"
+type Theme = "dark" | "light" | "system"
 
 interface ThemeState {
   theme: Theme
+  resolvedTheme: "dark" | "light"  // The actual theme being applied
   setTheme: (theme: Theme) => void
   toggleTheme: () => void
 }
@@ -24,46 +25,74 @@ const zustandStorage = {
   },
 }
 
+// Get system preference
+function getSystemTheme(): "dark" | "light" {
+  if (typeof window !== "undefined" && window.matchMedia) {
+    return window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light"
+  }
+  return "dark"
+}
+
+// Apply theme to document
+function applyTheme(resolved: "dark" | "light") {
+  if (resolved === "dark") {
+    document.documentElement.classList.add("dark")
+    document.documentElement.classList.remove("light")
+  } else {
+    document.documentElement.classList.remove("dark")
+    document.documentElement.classList.add("light")
+  }
+}
+
 export const useThemeStore = create<ThemeState>()(
   persist(
     (set, get) => ({
-      theme: "dark",
+      theme: "system",
+      resolvedTheme: getSystemTheme(),
       setTheme: (theme) => {
-        set({ theme })
-        // Apply theme to document - Tailwind uses "dark" class for dark mode
-        if (theme === "dark") {
-          document.documentElement.classList.add("dark")
-        } else {
-          document.documentElement.classList.remove("dark")
-        }
+        const resolved = theme === "system" ? getSystemTheme() : theme
+        set({ theme, resolvedTheme: resolved })
+        applyTheme(resolved)
       },
       toggleTheme: () => {
-        const newTheme = get().theme === "dark" ? "light" : "dark"
-        get().setTheme(newTheme)
+        const current = get().theme
+        // Cycle: system -> light -> dark -> system
+        const next = current === "system" ? "light" : current === "light" ? "dark" : "system"
+        get().setTheme(next)
       },
     }),
     {
-      name: "theme_preference_v1",
+      name: "theme_preference_v2",
       storage: createJSONStorage(() => zustandStorage),
       onRehydrateStorage: () => (state) => {
-        // Apply theme on rehydrate - Tailwind uses "dark" class for dark mode
-        if (state?.theme === "dark") {
-          document.documentElement.classList.add("dark")
-        } else {
-          document.documentElement.classList.remove("dark")
+        if (state) {
+          const resolved = state.theme === "system" ? getSystemTheme() : state.theme
+          state.resolvedTheme = resolved
+          applyTheme(resolved)
         }
       },
     }
   )
 )
 
-// Initialize theme on load
-if (typeof window !== "undefined") {
-  const savedTheme = storage.get<{ theme: Theme }>("theme_preference_v1")
-  if (savedTheme?.theme === "dark") {
-    document.documentElement.classList.add("dark")
-  } else {
-    document.documentElement.classList.remove("dark")
-  }
+// Listen for system theme changes
+if (typeof window !== "undefined" && window.matchMedia) {
+  const mediaQuery = window.matchMedia("(prefers-color-scheme: dark)")
+  
+  mediaQuery.addEventListener("change", (e) => {
+    const state = useThemeStore.getState()
+    if (state.theme === "system") {
+      const resolved = e.matches ? "dark" : "light"
+      useThemeStore.setState({ resolvedTheme: resolved })
+      applyTheme(resolved)
+    }
+  })
 }
 
+// Initialize theme on load
+if (typeof window !== "undefined") {
+  const savedTheme = storage.get<{ state: { theme: Theme } }>("theme_preference_v2")
+  const theme = savedTheme?.state?.theme || "system"
+  const resolved = theme === "system" ? getSystemTheme() : theme
+  applyTheme(resolved)
+}

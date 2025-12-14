@@ -1,4 +1,4 @@
-import type { TimeBlock } from "./today-tab"
+import type { TimeBlock } from "../../lib/schedule-store"
 
 interface ValidationHintsProps {
   blocks: TimeBlock[]
