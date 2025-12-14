@@ -19,6 +19,7 @@ import { useOnboardingStore } from "./lib/onboarding-store"
 import { useAnalyticsSync, useLoadAnalytics } from "./lib/use-analytics-sync"
 import { useHabitsSync } from "./lib/use-habits-sync"
 import { useCalendarCache } from "./lib/calendar-cache"
+import { useGoogleAccountsSync } from "./lib/use-google-accounts-sync"
 
 // Import debug utilities (only in dev mode)
 if (import.meta.env.DEV) {
@@ -61,6 +62,9 @@ export default function App() {
   
   // Load habits from Supabase
   useHabitsSync()
+  
+  // Sync Google Calendar accounts from Supabase (so users don't have to reconnect)
+  useGoogleAccountsSync()
   
   // Pre-fetch calendar events on app load
   const prefetchCalendar = useCalendarCache(state => state.prefetch)

@@ -19,6 +19,7 @@ import {
   revokeAccess,
   type GoogleAccount
 } from "../lib/google-oauth-electron"
+import { pushGoogleAccountsToSupabase, removeGoogleAccountFromSupabase } from "../lib/google-accounts-sync"
 
 interface SettingsModalProps {
   isOpen: boolean
@@ -106,6 +107,9 @@ export function SettingsModal({ isOpen, onClose, onShowTutorial }: SettingsModal
         saveAccount(newAccount)
         setConnectedAccounts(loadAccounts())
         addToast(`Connected ${userInfo.email}`, "success")
+        
+        // Sync to Supabase in background
+        pushGoogleAccountsToSupabase().catch(console.error)
       }
     } catch (error) {
       addToast("Failed to connect", "error")
@@ -123,6 +127,9 @@ export function SettingsModal({ isOpen, onClose, onShowTutorial }: SettingsModal
     removeAccount(email)
     setConnectedAccounts(loadAccounts())
     addToast(`Disconnected ${email}`, "success")
+    
+    // Remove from Supabase in background
+    removeGoogleAccountFromSupabase(email).catch(console.error)
   }
 
   const handleTestOllama = async () => {
