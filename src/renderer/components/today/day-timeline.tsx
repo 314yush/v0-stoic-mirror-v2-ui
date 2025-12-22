@@ -7,6 +7,7 @@ import { useScheduleStore } from "../../lib/schedule-store"
 import { useToastStore } from "../toasts"
 import { getTodayDateStrLocal, getDateStrLocal } from "../../lib/date-utils"
 import type { GoogleCalendarEvent, GoogleCalendarAttendee } from "../../lib/google-calendar-api"
+import { BlockTimeEditModal } from "./block-time-edit-modal"
 
 // Calendar event for display (enriched from Google Calendar)
 export interface CalendarEvent {
@@ -106,6 +107,7 @@ export function DayTimeline({
   const [currentTime, setCurrentTime] = useState(new Date())
   const [editingBlockId, setEditingBlockId] = useState<string | null>(null)
   const [editingTitle, setEditingTitle] = useState<string>("")
+  const [editingTimeBlockId, setEditingTimeBlockId] = useState<string | null>(null)
   const editingInputRef = useRef<HTMLInputElement>(null)
   const timelineRef = useRef<HTMLDivElement>(null)
   const timelineGridRef = useRef<HTMLDivElement>(null) // Ref for the actual grid area
@@ -126,6 +128,50 @@ export function DayTimeline({
     
     return () => clearInterval(interval)
   }, [])
+  
+  // Auto-scroll to current time on mount (only if viewing today)
+  useEffect(() => {
+    if (!viewingDate || !timelineGridRef.current) return
+    
+    const now = new Date()
+    const todayYear = now.getFullYear()
+    const todayMonth = now.getMonth()
+    const todayDay = now.getDate()
+    
+    const viewingYear = viewingDate.getFullYear()
+    const viewingMonth = viewingDate.getMonth()
+    const viewingDay = viewingDate.getDate()
+    
+    // Only auto-scroll if viewing today
+    if (viewingYear === todayYear && viewingMonth === todayMonth && viewingDay === todayDay) {
+      // Use setTimeout to ensure DOM is ready and blocks are rendered
+      const timeoutId = setTimeout(() => {
+        if (!timelineGridRef.current) return
+        
+        const currentHour = now.getHours()
+        const currentMinute = now.getMinutes()
+        
+        // Check if current time is within visible range
+        if (currentHour < START_HOUR || currentHour > END_HOUR) {
+          return
+        }
+        
+        const totalMinutes = currentHour * 60 + currentMinute
+        const startMinutes = START_HOUR * 60
+        const offsetMinutes = totalMinutes - startMinutes
+        const topOffset = (offsetMinutes / 60) * PIXELS_PER_HOUR
+        
+        // Scroll to show current time (with padding above)
+        const scrollPosition = topOffset - 150 // 150px padding above current time
+        timelineGridRef.current.scrollTo({
+          top: Math.max(0, scrollPosition),
+          behavior: 'smooth'
+        })
+      }, 150)
+      
+      return () => clearTimeout(timeoutId)
+    }
+  }, [viewingDate]) // Only run when viewing date changes
 
   // Handle double-click to edit title
   const handleBlockDoubleClick = (e: React.MouseEvent, blockId: string) => {
@@ -592,6 +638,16 @@ export function DayTimeline({
     })
   }
 
+  const handleEditTimes = (blockId: string) => {
+    setEditingTimeBlockId(blockId)
+    setContextMenu(null)
+  }
+
+  const handleSaveTimes = (blockId: string, start: string, end: string) => {
+    onUpdateBlock(blockId, { start, end })
+    addToast("Block times updated")
+  }
+
   const getBlockDuration = (start: string, end: string): string => {
     const startMins = timeToMinutes(start)
     const endMins = timeToMinutes(end)
@@ -740,16 +796,16 @@ export function DayTimeline({
 
   return (
     <>
-      <div ref={timelineRef} className="relative timeline-grid rounded-lg border border-border bg-card p-4">
-        <div className="flex gap-3">
+      <div ref={timelineRef} className="relative timeline-grid rounded-lg border border-border bg-card p-4 overflow-hidden">
+        <div className="flex gap-4">
           {/* Hour labels on the left */}
-          <div className="w-16 shrink-0 space-y-0">
+          <div className="w-20 shrink-0 space-y-0 relative">
             {HOURS.map((hour) => {
               const hourPosition = (hour - START_HOUR) * PIXELS_PER_HOUR
               return (
                 <div
                   key={hour}
-                  className="absolute text-sm text-muted-foreground pt-1"
+                  className="absolute text-sm text-muted-foreground pt-1.5 font-medium"
                   style={{
                     top: `${hourPosition}px`,
                   }}
@@ -760,10 +816,10 @@ export function DayTimeline({
             })}
           </div>
           
-          {/* Timeline area */}
+          {/* Timeline area - scrollable container */}
           <div
             ref={timelineGridRef}
-            className="flex-1 relative cursor-crosshair overflow-visible timeline-grid"
+            className="flex-1 relative cursor-crosshair overflow-y-auto timeline-grid"
             style={{ height: `${TOTAL_HEIGHT}px`, minHeight: `${TOTAL_HEIGHT}px` }}
             onMouseDown={handleMouseDownOnTimeline}
           >
@@ -773,17 +829,17 @@ export function DayTimeline({
               return (
                 <div
                   key={hour}
-                  className="absolute left-0 right-0 hour-row border-t border-border"
+                  className="absolute left-0 right-0 hour-row border-t"
                   style={{
                     top: `${hourPosition}px`,
                     height: `${PIXELS_PER_HOUR}px`,
-                    borderTopColor: 'rgba(255,255,255,0.15)',
+                    borderTopColor: 'var(--border)',
                   }}
                 />
               )
             })}
             
-            {/* Current time indicator - prominent red line */}
+            {/* Current time indicator - prominent red line with label */}
             {currentTimePos && (
               <div
                 className="absolute left-0 right-0 z-50 pointer-events-none"
@@ -791,12 +847,12 @@ export function DayTimeline({
                   top: `${currentTimePos.topOffset}px`,
                 }}
               >
-                {/* Main line */}
-                <div className="absolute left-0 right-0 h-0.5 bg-red-500" />
+                {/* Main dashed line */}
+                <div className="absolute left-0 right-0 h-0.5 bg-red-500" style={{ borderStyle: 'dashed' }} />
                 {/* Left indicator dot */}
-                <div className="absolute left-0 top-1/2 -translate-y-1/2 w-2 h-2 bg-red-500 rounded-full -ml-1" />
-                {/* Time label - centered on the line */}
-                <div className="absolute left-1/2 -translate-x-1/2 -top-5 px-2 py-0.5 bg-red-500 text-white text-[10px] font-medium rounded">
+                <div className="absolute left-0 top-1/2 -translate-y-1/2 w-2.5 h-2.5 bg-red-500 rounded-full -ml-1.5 shadow-sm" />
+                {/* Time label - prominent badge */}
+                <div className="absolute left-1/2 -translate-x-1/2 -top-6 px-2.5 py-1 bg-red-500 text-white text-xs font-semibold rounded-md shadow-md">
                   {currentTimePos.hour.toString().padStart(2, '0')}:{currentTimePos.minute.toString().padStart(2, '0')}
                 </div>
               </div>
@@ -945,15 +1001,15 @@ export function DayTimeline({
                   key={block.id}
                   onMouseDown={(e) => handleBlockMouseDown(e, block.id)}
                   onContextMenu={(e) => handleContextMenu(e, block.id)}
-                  className={`absolute left-0 right-0 rounded-md ${blockPadding} transition-all z-10 ${
+                  className={`absolute left-0 right-0 rounded-lg ${blockPadding} transition-all z-10 ${
                     isSelected
-                      ? "ring-2 ring-primary ring-offset-1"
+                      ? "ring-2 ring-primary ring-offset-1 shadow-md"
                       : isFocused
                         ? "ring-2 ring-primary/50 ring-offset-1"
                         : block.optional
-                          ? "bg-[rgba(243,244,246,0.3)] dark:bg-[rgba(31,41,55,0.3)] border border-dashed border-border hover:bg-[rgba(243,244,246,0.4)] dark:hover:bg-[rgba(31,41,55,0.4)]"
-                          : "bg-[rgba(34,197,94,0.3)] dark:bg-[rgba(34,197,94,0.3)] border border-primary/50 hover:bg-[rgba(34,197,94,0.4)] dark:hover:bg-[rgba(34,197,94,0.4)] dark:border-primary/60"
-                  } ${isSelected ? "cursor-grabbing" : "cursor-grab"}`}
+                          ? "bg-[rgba(243,244,246,0.3)] dark:bg-[rgba(31,41,55,0.3)] border border-dashed border-border hover:bg-[rgba(243,244,246,0.4)] dark:hover:bg-[rgba(31,41,55,0.4)] shadow-sm"
+                          : "bg-[rgba(34,197,94,0.3)] dark:bg-[rgba(34,197,94,0.3)] border border-black/20 dark:border-primary/50 hover:bg-[rgba(34,197,94,0.4)] dark:hover:bg-[rgba(34,197,94,0.4)] dark:border-primary/60 shadow-sm"
+                  } ${isSelected ? "cursor-grabbing" : "cursor-grab"} ${!isCommitted ? "opacity-50" : ""} hover:shadow-md`}
                   style={{
                     top: `${top}px`,
                     height: `${height}px`, // Always use exact calculated height to accurately reflect duration
@@ -996,13 +1052,13 @@ export function DayTimeline({
                       ) : (
                         <div className="flex items-center gap-2 min-w-0 flex-1">
                           <p 
-                            className={`${textSize} font-medium text-foreground truncate cursor-text`}
+                            className={`${textSize} font-semibold text-foreground truncate cursor-text`}
                             onDoubleClick={(e) => handleBlockDoubleClick(e, block.id)}
                             title="Double-click to edit"
                           >
                             {block.identity}
                           </p>
-                          <span className={`${isShortBlock ? 'text-[10px]' : 'text-xs'} text-muted-foreground shrink-0`}>
+                          <span className={`${isShortBlock ? 'text-[10px]' : 'text-xs'} text-muted-foreground shrink-0 font-medium`}>
                             {getBlockDuration(block.start, block.end)}
                           </span>
                         </div>
@@ -1030,7 +1086,7 @@ export function DayTimeline({
                             }}
                             className={`${buttonPadding} ${buttonText} font-medium rounded transition-all ${
                               block.completed === true
-                                ? "bg-green-500/20 text-green-400 border-2 border-green-500/50 shadow-sm"
+                                ? "bg-green-500/10 text-green-600 dark:text-green-400 border border-green-500/30 dark:border-green-500/50 shadow-sm opacity-70"
                                 : "bg-secondary text-muted-foreground hover:text-foreground hover:bg-secondary/80 border border-border"
                             }`}
                           >
@@ -1084,6 +1140,15 @@ export function DayTimeline({
               top: `${contextMenu.y}px`,
             }}
           >
+            <button
+              onClick={() => {
+                handleEditTimes(contextMenu.blockId)
+              }}
+              className="w-full px-4 py-2.5 text-left text-sm font-medium text-foreground hover:bg-accent/50 transition-colors flex items-center gap-2"
+            >
+              <span className="text-base">🕐</span>
+              <span>Edit Times</span>
+            </button>
             <button
               onClick={() => {
                 handleExtend15(contextMenu.blockId)
@@ -1299,6 +1364,27 @@ export function DayTimeline({
           </div>
         </>
       )}
+
+      {/* Block Time Edit Modal */}
+      {editingTimeBlockId && (() => {
+        const block = blocks.find((b) => b.id === editingTimeBlockId)
+        if (!block) return null
+        
+        return (
+          <BlockTimeEditModal
+            block={block}
+            allBlocks={blocks}
+            isOpen={!!editingTimeBlockId}
+            onClose={() => setEditingTimeBlockId(null)}
+            onSave={(start, end) => {
+              handleSaveTimes(editingTimeBlockId, start, end)
+              setEditingTimeBlockId(null)
+            }}
+            viewingDate={viewingDate}
+            isCommitted={isCommitted}
+          />
+        )
+      })()}
     </>
   )
 }

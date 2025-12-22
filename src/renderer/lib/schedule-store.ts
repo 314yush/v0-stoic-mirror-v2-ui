@@ -33,6 +33,8 @@ interface ScheduleState {
   getCommitByDate: (date: string) => DayCommit | null
   setCommits: (commits: DayCommit[]) => void // For syncing from Supabase
   updateBlockCompletion: (blockId: string, completed: boolean, date?: string) => void
+  updateBlocksInCommit: (date: string, blocks: TimeBlock[]) => void // Update blocks in a committed day
+  saveDraftBlocks: (date: string, blocks: TimeBlock[]) => void // Save draft blocks locally (not synced to Supabase)
 }
 
 // Custom storage adapter for Zustand
@@ -66,10 +68,19 @@ export const useScheduleStore = create<ScheduleState>()(
           throw new Error("Cannot modify a finalized commit. This day has already passed and is locked to prevent gaming stats.")
         }
         
+        // If there's an existing draft, merge with provided blocks (prefer provided blocks if both exist)
+        // If no blocks provided and draft exists, use draft blocks
+        // If blocks provided, use them (they may include draft blocks)
+        const blocksToCommit = blocks.length > 0 
+          ? blocks 
+          : (existing && !existing.committed && existing.blocks.length > 0 
+              ? existing.blocks 
+              : blocks)
+        
         // Auto-finalize if all blocks have passed
         const commit: DayCommit = {
           date: commitDate,
-          blocks,
+          blocks: blocksToCommit,
           committed_at: new Date().toISOString(),
           committed: true,
         }
@@ -90,7 +101,7 @@ export const useScheduleStore = create<ScheduleState>()(
         
         const isToday = commitYear === todayYear && commitMonth === todayMonth + 1 && commitDay === todayDay
         
-        if (isPastDate || (isToday && blocks.every(block => {
+        if (isPastDate || (isToday && blocksToCommit.every(block => {
           const [endHour, endMin] = block.end.split(":").map(Number)
           const blockEndTime = new Date()
           blockEndTime.setFullYear(todayYear, todayMonth, todayDay) // Use today's LOCAL date
@@ -207,6 +218,60 @@ export const useScheduleStore = create<ScheduleState>()(
             console.log("[Schedule Store] Block not found, cannot trigger habit completion")
           }
         }
+      },
+      updateBlocksInCommit: (date: string, blocks: TimeBlock[]) => {
+        const commit = get().commits.find((c) => c.date === date)
+        
+        if (!commit) {
+          throw new Error(`No commit found for date ${date}. Cannot update blocks.`)
+        }
+        
+        // Prevent updating finalized days (anti-gaming protection)
+        if (commit.finalized_at) {
+          throw new Error("Cannot update blocks in a finalized commit. This day has already passed and is locked to prevent gaming stats.")
+        }
+        
+        // Update the commit with new blocks, preserving committed_at and other metadata
+        const updatedCommit: DayCommit = {
+          ...commit,
+          blocks,
+        }
+        
+        set({
+          commits: get().commits.map((c) => (c.date === date ? updatedCommit : c)),
+        })
+        
+        // Sync to Supabase in background
+        syncScheduleCommit(updatedCommit, "update").catch(console.error)
+      },
+      saveDraftBlocks: (date: string, blocks: TimeBlock[]) => {
+        const existing = get().commits.find((c) => c.date === date)
+        
+        // Don't overwrite committed blocks - drafts are only for uncommitted dates
+        if (existing && existing.committed) {
+          // If already committed, don't save as draft
+          return
+        }
+        
+        // Create or update draft (committed: false, no committed_at)
+        const draft: DayCommit = {
+          date,
+          blocks,
+          committed_at: existing?.committed_at || new Date().toISOString(), // Preserve original committed_at if converting from commit
+          committed: false,
+        }
+        
+        if (existing) {
+          // Update existing draft
+          set({
+            commits: get().commits.map((c) => (c.date === date ? draft : c)),
+          })
+        } else {
+          // Create new draft
+          set({ commits: [draft, ...get().commits] })
+        }
+        
+        // Do NOT sync to Supabase - drafts are local only
       },
     }),
     {

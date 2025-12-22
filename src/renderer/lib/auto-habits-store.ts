@@ -169,3 +169,6 @@ export function useAutoHabitAnalysis() {
   }, [commits, runAnalysis])
 }
 
+
+
+

@@ -15,6 +15,8 @@ import { useScheduleStore } from '../../lib/schedule-store'
 import type { CalendarEvent } from './day-timeline'
 import { loadAccounts } from '../../lib/google-oauth-electron'
 import { importEventsFromAllAccounts, googleEventToTimeRange } from '../../lib/google-calendar-api'
+import { useToastStore } from '../toasts'
+import { getTodayDateStrLocal } from '../../lib/date-utils'
 
 interface CalendarViewProps {
   viewMode: 'week'
@@ -38,12 +40,23 @@ export function CalendarView({
   onAddBlock,
 }: CalendarViewProps) {
   const calendarRef = useRef<FullCalendar>(null)
+  const calendarContainerRef = useRef<HTMLDivElement>(null)
   const [selectedEvent, setSelectedEvent] = useState<CalendarEvent | null>(null)
   const [visibleRange, setVisibleRange] = useState<{ start: Date; end: Date } | null>(null)
   const [weekCalendarEvents, setWeekCalendarEvents] = useState<Map<string, CalendarEvent[]>>(new Map())
   const [loadingEvents, setLoadingEvents] = useState(false)
   
-  const { getCommitByDate, commits } = useScheduleStore()
+  const { getCommitByDate, commits, updateBlocksInCommit } = useScheduleStore()
+  const { addToast } = useToastStore()
+  
+  // Calculate current time for scroll position - use state so it's reactive
+  const [scrollTime, setScrollTime] = useState(() => {
+    const now = new Date()
+    const hours = now.getHours()
+    const minutes = now.getMinutes()
+    // Format as HH:MM:SS for FullCalendar scrollTime prop
+    return `${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}:00`
+  })
 
   // Navigate to viewing date when it changes
   useEffect(() => {
@@ -52,6 +65,48 @@ export function CalendarView({
       calendarApi.gotoDate(viewingDate)
     }
   }, [viewingDate])
+  
+  // Force scroll to current time on initial mount
+  useEffect(() => {
+    const scrollToCurrentTime = () => {
+      if (calendarContainerRef.current) {
+        const scrollEl = calendarContainerRef.current.querySelector('.fc-timegrid-body') as HTMLElement
+        if (scrollEl) {
+          const now = new Date()
+          const hours = now.getHours()
+          const minutes = now.getMinutes()
+          
+          // Calculate scroll position
+          const slotDuration = 30 // minutes
+          const slotHeight = 48 // pixels per slot
+          const startHour = 6 // slotMinTime
+          
+          const currentSlotMinutes = hours * 60 + minutes
+          const startSlotMinutes = startHour * 60
+          const slotOffset = currentSlotMinutes - startSlotMinutes
+          const slotsFromStart = slotOffset / slotDuration
+          
+          const scrollPosition = slotsFromStart * slotHeight - 200 // 200px padding
+          
+          scrollEl.scrollTo({
+            top: Math.max(0, scrollPosition),
+            behavior: 'auto'
+          })
+        }
+      }
+    }
+    
+    // Try multiple times to ensure it works after calendar renders
+    const timeouts = [
+      setTimeout(scrollToCurrentTime, 100),
+      setTimeout(scrollToCurrentTime, 300),
+      setTimeout(scrollToCurrentTime, 600),
+    ]
+    
+    return () => {
+      timeouts.forEach(clearTimeout)
+    }
+  }, []) // Run once on mount
   
   // Fetch calendar events for the visible date range
   useEffect(() => {
@@ -134,19 +189,28 @@ export function CalendarView({
       const commit = getCommitByDate(dateStr)
       
       if (commit?.blocks) {
+        const isDraft = !commit.committed
         for (const block of commit.blocks) {
+          // Apply reduced opacity for drafts
+          const baseOpacity = isDraft ? 0.5 : 1.0
+          const bgOpacity = isDraft ? 0.15 : 0.3
           events.push({
             id: `block-${dateStr}-${block.id}`,
             title: block.identity,
             start: `${dateStr}T${block.start}:00`,
             end: `${dateStr}T${block.end}:00`,
-            backgroundColor: block.optional ? 'rgba(156, 163, 175, 0.3)' : 'rgba(34, 197, 94, 0.3)',
-            borderColor: block.optional ? '#9ca3af' : '#22c55a',
+            backgroundColor: block.optional 
+              ? `rgba(156, 163, 175, ${bgOpacity})` 
+              : `rgba(34, 197, 94, ${bgOpacity})`,
+            borderColor: block.optional ? '#9ca3af' : 'rgba(0, 0, 0, 0.2)',
+            borderWidth: 1,
             textColor: 'var(--foreground)',
+            classNames: isDraft ? ['draft-block'] : [],
             extendedProps: {
               type: 'identity-block',
               block,
               dateStr,
+              isDraft,
             },
           })
         }
@@ -190,6 +254,62 @@ export function CalendarView({
   // Handle visible date range changes
   const handleDatesSet = (arg: DatesSetArg) => {
     setVisibleRange({ start: arg.start, end: arg.end })
+    
+    // Update scrollTime to current time
+    const now = new Date()
+    const hours = now.getHours()
+    const minutes = now.getMinutes()
+    const newScrollTime = `${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}:00`
+    setScrollTime(newScrollTime)
+    
+    // Scroll to current time when dates are set (calendar is ready)
+    // This runs whenever the calendar view changes or loads
+    const scrollToCurrentTime = () => {
+      const calendarApi = calendarRef.current?.getApi()
+      if (calendarApi) {
+        // Try using FullCalendar's scrollToTime method if available
+        try {
+          // FullCalendar v6+ might have scrollToTime
+          if (typeof (calendarApi as any).scrollToTime === 'function') {
+            (calendarApi as any).scrollToTime(newScrollTime)
+            return
+          }
+        } catch (e) {
+          // Fall through to manual scroll
+        }
+      }
+      
+      // Fallback: manual scroll
+      if (calendarContainerRef.current) {
+        const scrollEl = calendarContainerRef.current.querySelector('.fc-timegrid-body') as HTMLElement
+        if (scrollEl) {
+          // Calculate scroll position
+          // slotMinTime is 06:00:00, slotDuration is 00:30:00
+          const slotDuration = 30 // minutes
+          const slotHeight = 48 // pixels per slot
+          const startHour = 6 // slotMinTime
+          
+          // Calculate how many slots from start (6am) to current time
+          const currentSlotMinutes = hours * 60 + minutes
+          const startSlotMinutes = startHour * 60
+          const slotOffset = currentSlotMinutes - startSlotMinutes
+          const slotsFromStart = slotOffset / slotDuration
+          
+          // Scroll position with padding
+          const scrollPosition = slotsFromStart * slotHeight - 200 // 200px padding from top
+          
+          scrollEl.scrollTo({
+            top: Math.max(0, scrollPosition),
+            behavior: 'auto' // Use 'auto' for instant scroll on initial load
+          })
+        }
+      }
+    }
+    
+    // Try scrolling with multiple attempts to ensure it works
+    setTimeout(scrollToCurrentTime, 50)
+    setTimeout(scrollToCurrentTime, 200)
+    setTimeout(scrollToCurrentTime, 500) // Final attempt
   }
 
   const handleEventClick = (info: EventClickArg) => {
@@ -225,14 +345,95 @@ export function CalendarView({
     }
     
     const block = props.block as TimeBlock
-    const dateStr = props.dateStr
+    const originalDateStr = props.dateStr
+    const newDateStr = info.event.start?.toISOString().split('T')[0]
+    
+    if (!newDateStr) {
+      info.revert()
+      addToast("Could not determine new date", "error")
+      return
+    }
+    
     const newStart = info.event.start?.toTimeString().slice(0, 5) || block.start
     const newEnd = info.event.end?.toTimeString().slice(0, 5) || block.end
     
-    // Update the block in the store
-    // Note: This would require extending the schedule store to support cross-day moves
-    // For now, we just show a toast
-    console.log('Block moved:', { block, newStart, newEnd, newDate: info.event.start?.toISOString().split('T')[0] })
+    try {
+      const { saveDraftBlocks, getCommitByDate: getCommit, updateBlocksInCommit } = useScheduleStore.getState()
+      const todayStr = getTodayDateStrLocal()
+      const isNewDateFuture = newDateStr > todayStr
+      
+      // Handle cross-day moves
+      if (originalDateStr !== newDateStr) {
+        // Remove block from original date
+        const originalCommit = getCommit(originalDateStr)
+        if (originalCommit) {
+          const updatedOriginalBlocks = originalCommit.blocks.filter((b) => b.id !== block.id)
+          if (updatedOriginalBlocks.length !== originalCommit.blocks.length) {
+            // Only update if block was found
+            if (originalCommit.committed) {
+              updateBlocksInCommit(originalDateStr, updatedOriginalBlocks)
+            } else {
+              // It's a draft, use saveDraftBlocks
+              saveDraftBlocks(originalDateStr, updatedOriginalBlocks)
+            }
+          }
+        }
+        
+        // Add block to new date
+        const newCommit = getCommit(newDateStr)
+        if (newCommit) {
+          const updatedNewBlocks = [
+            ...newCommit.blocks.filter((b) => b.id !== block.id), // Remove if duplicate
+            { ...block, start: newStart, end: newEnd },
+          ]
+          if (newCommit.committed) {
+            updateBlocksInCommit(newDateStr, updatedNewBlocks)
+          } else {
+            // It's a draft, use saveDraftBlocks
+            saveDraftBlocks(newDateStr, updatedNewBlocks)
+          }
+          addToast(`Block moved to ${new Date(newDateStr).toLocaleDateString()}`)
+        } else {
+          // No commit exists for new date - save as draft if future, or create commit if past/today
+          if (isNewDateFuture) {
+            saveDraftBlocks(newDateStr, [{ ...block, start: newStart, end: newEnd }])
+            addToast(`Block moved to ${new Date(newDateStr).toLocaleDateString()}`)
+          } else {
+            // For past/today dates, create a commit (though this shouldn't normally happen)
+            const { commitDay } = useScheduleStore.getState()
+            commitDay([{ ...block, start: newStart, end: newEnd }], newDateStr)
+            addToast(`Block moved to ${new Date(newDateStr).toLocaleDateString()}`)
+          }
+        }
+      } else {
+        // Same day, just update times
+        const commit = getCommit(originalDateStr)
+        if (commit) {
+          const updatedBlocks = commit.blocks.map((b) =>
+            b.id === block.id ? { ...b, start: newStart, end: newEnd } : b
+          )
+          if (commit.committed) {
+            updateBlocksInCommit(originalDateStr, updatedBlocks)
+          } else {
+            // It's a draft, use saveDraftBlocks
+            saveDraftBlocks(originalDateStr, updatedBlocks)
+          }
+          addToast("Block time updated")
+        } else {
+          // No commit exists - save as draft if future
+          if (isNewDateFuture || originalDateStr >= todayStr) {
+            saveDraftBlocks(originalDateStr, [{ ...block, start: newStart, end: newEnd }])
+            addToast("Block time updated")
+          } else {
+            info.revert()
+            addToast("Could not find commit for this date", "error")
+          }
+        }
+      }
+    } catch (error) {
+      info.revert()
+      addToast(error instanceof Error ? error.message : "Failed to update block", "error")
+    }
   }
   
   // Handle event resize
@@ -246,22 +447,52 @@ export function CalendarView({
     }
     
     const block = props.block as TimeBlock
+    const dateStr = props.dateStr
     const newStart = info.event.start?.toTimeString().slice(0, 5) || block.start
     const newEnd = info.event.end?.toTimeString().slice(0, 5) || block.end
     
-    console.log('Block resized:', { block, newStart, newEnd })
+    try {
+      const { saveDraftBlocks, getCommitByDate: getCommit, updateBlocksInCommit } = useScheduleStore.getState()
+      const commit = getCommit(dateStr)
+      if (commit) {
+        const updatedBlocks = commit.blocks.map((b) =>
+          b.id === block.id ? { ...b, start: newStart, end: newEnd } : b
+        )
+        if (commit.committed) {
+          updateBlocksInCommit(dateStr, updatedBlocks)
+        } else {
+          // It's a draft, use saveDraftBlocks
+          saveDraftBlocks(dateStr, updatedBlocks)
+        }
+        addToast("Block duration updated")
+      } else {
+        // No commit exists - save as draft if future
+        const todayStr = getTodayDateStrLocal()
+        if (dateStr >= todayStr) {
+          saveDraftBlocks(dateStr, [{ ...block, start: newStart, end: newEnd }])
+          addToast("Block duration updated")
+        } else {
+          info.revert()
+          addToast("Could not find commit for this date", "error")
+        }
+      }
+    } catch (error) {
+      info.revert()
+      addToast(error instanceof Error ? error.message : "Failed to resize block", "error")
+    }
   }
 
-  // Custom event rendering
+  // Custom event rendering - cleaner design
   const renderEventContent = (eventInfo: any) => {
     const props = eventInfo.event.extendedProps
     const isGoogleEvent = props.type === 'google-calendar'
     const hasMeetingLink = props.hasMeetingLink
+    const isDraft = props.isDraft || false
     
     return (
-      <div className="p-1 overflow-hidden h-full">
-        <div className="flex items-center justify-between gap-1">
-          <span className="text-xs font-medium truncate">
+      <div className="px-2 py-1.5 overflow-hidden h-full flex flex-col justify-between">
+        <div className="flex items-center justify-between gap-1.5 min-w-0">
+          <span className={`text-xs font-medium truncate ${isDraft ? 'opacity-70' : ''}`}>
             {eventInfo.event.title}
           </span>
           {isGoogleEvent && hasMeetingLink && (
@@ -280,13 +511,13 @@ export function CalendarView({
                   window.open(url, '_blank')
                 }
               }}
-              className="text-[9px] px-1.5 py-0.5 bg-secondary border border-border rounded hover:bg-accent shrink-0"
+              className="text-[10px] px-2 py-0.5 bg-secondary/80 border border-border rounded hover:bg-accent shrink-0 font-medium transition-colors"
             >
               Join
             </button>
           )}
         </div>
-        <span className="text-[10px] text-muted-foreground">
+        <span className={`text-[10px] ${isDraft ? 'text-muted-foreground/60' : 'text-muted-foreground'} mt-0.5`}>
           {eventInfo.timeText}
         </span>
       </div>
@@ -294,7 +525,7 @@ export function CalendarView({
   }
 
   return (
-    <div className="calendar-view h-full">
+    <div ref={calendarContainerRef} className="calendar-view h-full">
       <style>{`
         .calendar-view .fc {
           --fc-border-color: var(--border);
@@ -317,49 +548,77 @@ export function CalendarView({
         }
         .calendar-view .fc-col-header-cell {
           background: var(--secondary);
-          padding: 8px 0;
+          padding: 10px 0;
+          border-bottom: 1px solid var(--border);
         }
         .calendar-view .fc-col-header-cell-cushion {
           color: var(--foreground);
-          font-weight: 500;
-          font-size: 12px;
+          font-weight: 600;
+          font-size: 13px;
+          letter-spacing: 0.01em;
         }
         .calendar-view .fc-timegrid-slot-label {
-          font-size: 11px;
+          font-size: 12px;
           color: var(--muted-foreground);
+          font-weight: 500;
+          padding-right: 12px;
         }
         .calendar-view .fc-timegrid-slot {
           height: 48px;
+          border-top: 1px solid var(--border);
+        }
+        .calendar-view .fc-timegrid-slot-minor {
+          border-top: 1px solid var(--border);
+          opacity: 0.4;
         }
         .calendar-view .fc-event {
-          border-radius: 4px;
+          border-radius: 6px;
           border-width: 0 0 0 3px;
           cursor: pointer;
+          padding: 0;
+          margin: 2px 4px;
+          box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
+          transition: all 0.2s ease;
         }
         .calendar-view .fc-event:hover {
-          opacity: 0.9;
+          box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+          transform: translateY(-1px);
+        }
+        .calendar-view .fc-event.draft-block {
+          opacity: 0.5;
+        }
+        .calendar-view .fc-event.draft-block:hover {
+          opacity: 0.7;
         }
         .calendar-view .fc-daygrid-day-number {
           color: var(--foreground);
-          font-size: 12px;
-          padding: 4px 8px;
+          font-size: 13px;
+          font-weight: 500;
+          padding: 6px 10px;
         }
         .calendar-view .fc-daygrid-day.fc-day-today {
-          background: rgba(34, 197, 94, 0.1);
+          background: rgba(34, 197, 94, 0.08);
         }
         .calendar-view .fc-toolbar-title {
           color: var(--foreground);
-          font-size: 16px;
+          font-size: 18px;
           font-weight: 600;
+          letter-spacing: -0.01em;
         }
         .calendar-view .fc-button {
-          font-size: 12px;
-          padding: 4px 12px;
+          font-size: 13px;
+          font-weight: 500;
+          padding: 6px 14px;
           border-radius: 6px;
+          transition: all 0.2s ease;
         }
         .calendar-view .fc-button-primary:not(:disabled).fc-button-active {
           background: var(--primary);
           border-color: var(--primary);
+        }
+        .calendar-view .fc-button:hover:not(:disabled) {
+          transform: translateY(-1px);
+          box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
         }
         .calendar-view .fc-scrollgrid {
           border-radius: 8px;
@@ -368,11 +627,18 @@ export function CalendarView({
         .calendar-view .fc-timegrid-now-indicator-line {
           border-color: #ef4444;
           border-width: 2px;
+          border-style: dashed;
         }
         .calendar-view .fc-timegrid-now-indicator-arrow {
           border-color: #ef4444;
           border-top-color: transparent;
           border-bottom-color: transparent;
+        }
+        .calendar-view .fc-timegrid-col {
+          border-right: 1px solid var(--border);
+        }
+        .calendar-view .fc-timegrid-col.fc-timegrid-col-frame {
+          border-right: 1px solid var(--border);
         }
       `}</style>
       <FullCalendar
@@ -397,6 +663,7 @@ export function CalendarView({
         eventStartEditable={true}
         eventDurationEditable={true}
         nowIndicator={true}
+        scrollTime={scrollTime}
         slotMinTime="06:00:00"
         slotMaxTime="23:00:00"
         slotDuration="00:30:00"

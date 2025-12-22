@@ -57,3 +57,6 @@ CREATE TRIGGER update_google_accounts_updated_at
   BEFORE UPDATE ON google_calendar_accounts
   FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
 
+
+
+

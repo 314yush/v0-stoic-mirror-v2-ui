@@ -335,3 +335,6 @@ export function hasCategories(identity: string): boolean {
   return getCategoriesForIdentity(identity).length > 0
 }
 
+
+
+

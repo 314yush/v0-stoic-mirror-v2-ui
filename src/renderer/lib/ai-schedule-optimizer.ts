@@ -392,3 +392,6 @@ export function analyzeWeeklyPatterns(
 
 
 
+
+
+

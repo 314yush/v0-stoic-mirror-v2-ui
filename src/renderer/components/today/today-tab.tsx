@@ -1,5 +1,5 @@
 
-import { useState, useEffect, useMemo } from "react"
+import { useState, useEffect, useMemo, useRef } from "react"
 import { DayTimeline } from "./day-timeline"
 import { CalendarView } from "./calendar-view"
 import { QuickAddBlock } from "./quick-add-block"
@@ -196,12 +196,33 @@ export function TodayTab() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [lastCheckedDate, settings.commitCutoffTime]) // Only depend on lastCheckedDate and cutoffTime
 
+  // Track the last viewing date we loaded to detect date changes
+  const lastLoadedDateRef = useRef<string | null>(null)
+  
   // Load commit from store when viewing date or commits change
   // This is the single source of truth for what to display
   useEffect(() => {
     const commit = getCommitByDate(viewingDateStr)
     const hasCommit = commit?.committed || false
     const todayStr = getTodayDateStrLocal() // Use LOCAL timezone
+    
+    // Check if viewing date actually changed - if not, and we have local edits, don't overwrite
+    const viewingDateChanged = lastLoadedDateRef.current !== viewingDateStr
+    lastLoadedDateRef.current = viewingDateStr
+    
+    // If viewing date didn't change and we have blocks, check if commit blocks match current blocks
+    // If they match, it's safe to reload. If they don't match, we might have unsaved edits.
+    if (!viewingDateChanged && blocks.length > 0 && commit) {
+      // Compare blocks - if they're different, don't overwrite (user might be editing)
+      const commitBlocksStr = JSON.stringify(commit.blocks.map(b => ({ id: b.id, start: b.start, end: b.end, identity: b.identity })))
+      const currentBlocksStr = JSON.stringify(blocks.map(b => ({ id: b.id, start: b.start, end: b.end, identity: b.identity })))
+      
+      // Only skip reload if blocks are actually different (user is editing)
+      // But if commit was updated externally (e.g., from sync), we should reload
+      // We can detect external updates by checking if commit.blocks changed but our local blocks didn't
+      // For now, if blocks don't match and we're on the same date, assume user is editing and don't overwrite
+      // This prevents the reset bug, but we'll reload when date changes or commit changes externally
+    }
     
     // Helpful hint: If viewing today and no commit, check if yesterday has a commit
     if (viewingDateStr === todayStr && (!commit || !hasCommit)) {
@@ -232,9 +253,17 @@ export function TodayTab() {
     
     if (commit && commit.date === viewingDateStr && hasCommit) {
       // Load the commit - only if it's actually committed
-      setBlocks(commit.blocks)
-      setCommitted(true)
-      setCommitTime(commit.committed_at ? new Date(commit.committed_at).toLocaleTimeString() : null)
+      // Only overwrite if viewing date changed or if blocks are the same (no local edits)
+      const shouldReload = viewingDateChanged || JSON.stringify(commit.blocks) === JSON.stringify(blocks)
+      if (shouldReload) {
+        setBlocks(commit.blocks)
+        setCommitted(true)
+        setCommitTime(commit.committed_at ? new Date(commit.committed_at).toLocaleTimeString() : null)
+      } else {
+        // Keep committed state in sync even if we don't reload blocks
+        setCommitted(true)
+        setCommitTime(commit.committed_at ? new Date(commit.committed_at).toLocaleTimeString() : null)
+      }
     } else if (commit && commit.date === viewingDateStr && commit.blocks.length > 0) {
       // DEBUG: Commit exists but not marked as committed - this might be the issue
       if (import.meta.env.DEV) {
@@ -246,23 +275,30 @@ export function TodayTab() {
         })
       }
       // Still load blocks but don't mark as committed (user can re-commit)
-      setBlocks(commit.blocks)
+      // Only reload if viewing date changed
+      if (viewingDateChanged) {
+        setBlocks(commit.blocks)
+      }
       setCommitted(false)
       setCommitTime(null)
     } else {
       // No commit found or not committed - allow editing
       // If there are blocks but no commit, keep them for editing
-      if (commit && commit.blocks.length > 0 && !hasCommit) {
-        setBlocks(commit.blocks)
-      } else if (!commit || commit.blocks.length === 0) {
-        setBlocks([])
+      if (viewingDateChanged) {
+        if (commit && commit.blocks.length > 0 && !hasCommit) {
+          setBlocks(commit.blocks)
+        } else if (!commit || commit.blocks.length === 0) {
+          setBlocks([])
+        }
       }
       setCommitted(false)
       setCommitTime(null)
     }
     // Reset history when changing dates
-    setHistory([])
-    setHistoryIndex(-1)
+    if (viewingDateChanged) {
+      setHistory([])
+      setHistoryIndex(-1)
+    }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [viewingDateStr, commits, settings.commitCutoffTime]) // Removed currentTime from dependencies to prevent refresh while typing
 
@@ -416,33 +452,71 @@ export function TodayTab() {
   const handleAddBlock = (block: Omit<TimeBlock, "id">) => {
     saveToHistory(blocks)
     const newBlock = { ...block, id: Math.random().toString(36).substring(7) }
-    setBlocks([...blocks, newBlock])
+    const updatedBlocks = [...blocks, newBlock]
+    setBlocks(updatedBlocks)
     setShowQuickAdd(false)
+    
+    // Auto-save as draft if date is future or uncommitted
+    if (!committed) {
+      const todayStr = getTodayDateStrLocal()
+      const isFutureDate = viewingDateStr > todayStr
+      const isTodayUncommitted = viewingDateStr === todayStr && !committed
+      
+      if (isFutureDate || isTodayUncommitted) {
+        const { saveDraftBlocks } = useScheduleStore.getState()
+        saveDraftBlocks(viewingDateStr, updatedBlocks)
+      }
+    }
+    
     addToast("Block added")
     return newBlock
   }
 
   const handleUpdateBlock = (id: string, updates: Partial<TimeBlock>) => {
+    const block = blocks.find((b) => b.id === id)
+    if (!block) return
+    
     // ANTI-GAMING: Prevent editing blocks after they've passed (for committed days)
     if (committed && viewingCommit) {
-      const block = blocks.find((b) => b.id === id)
-      if (block) {
+      // Check if block has passed using proper date comparison
+      const now = new Date()
+      const todayYear = now.getFullYear()
+      const todayMonth = now.getMonth()
+      const todayDay = now.getDate()
+      
+      const viewingYear = viewingDate.getFullYear()
+      const viewingMonth = viewingDate.getMonth()
+      const viewingDay = viewingDate.getDate()
+      
+      const isPastDate = viewingYear < todayYear || 
+        (viewingYear === todayYear && viewingMonth < todayMonth) ||
+        (viewingYear === todayYear && viewingMonth === todayMonth && viewingDay < todayDay)
+      
+      // If viewing a past date, all blocks have passed
+      if (isPastDate) {
+        // Only allow updating completion status for past dates
+        const allowedUpdates = ['completed', 'optional']
+        const updateKeys = Object.keys(updates)
+        const hasDisallowedUpdate = updateKeys.some(key => !allowedUpdates.includes(key))
+        
+        if (hasDisallowedUpdate) {
+          addToast("Cannot edit: This day has already passed and is locked to prevent gaming stats.", "error")
+          return
+        }
+      } else {
+        // For today or future dates, check if this specific block has passed
         const [endHour, endMin] = block.end.split(":").map(Number)
         const blockEndTime = new Date()
+        blockEndTime.setFullYear(viewingYear, viewingMonth, viewingDay)
         blockEndTime.setHours(endHour, endMin, 0, 0)
         blockEndTime.setSeconds(0, 0)
         
-        const now = new Date()
-        const viewingDateObj = new Date(viewingDate)
-        viewingDateObj.setHours(0, 0, 0, 0)
-        const today = new Date()
-        today.setHours(0, 0, 0, 0)
-        const isPastDate = viewingDateObj.getTime() < today.getTime()
+        const isToday = viewingYear === todayYear && viewingMonth === todayMonth && viewingDay === todayDay
+        const blockHasPassed = isToday && now.getTime() >= blockEndTime.getTime()
         
-        // If block has passed, prevent editing (unless it's just completion status)
-        if (isPastDate || (viewingDateObj.getTime() === today.getTime() && now.getTime() >= blockEndTime.getTime())) {
-          // Only allow updating completion status, not block details
-          const allowedUpdates = ['completed', 'optional'] // Allow these for Yes/No functionality
+        // If block has passed, only allow completion status updates
+        if (blockHasPassed) {
+          const allowedUpdates = ['completed', 'optional']
           const updateKeys = Object.keys(updates)
           const hasDisallowedUpdate = updateKeys.some(key => !allowedUpdates.includes(key))
           
@@ -454,13 +528,38 @@ export function TodayTab() {
       }
     }
     
+    // Update local state immediately for UI responsiveness
+    const updatedBlocks = blocks.map((b) => (b.id === id ? { ...b, ...updates } : b))
+    setBlocks(updatedBlocks)
+    
+    // If committed, also update the commit in the store
+    if (committed && viewingCommit) {
+      try {
+        const { updateBlocksInCommit } = useScheduleStore.getState()
+        updateBlocksInCommit(viewingDateStr, updatedBlocks)
+      } catch (error) {
+        // If update fails (e.g., finalized), revert local state
+        setBlocks(blocks)
+        addToast(error instanceof Error ? error.message : "Cannot update committed blocks", "error")
+        return
+      }
+    } else {
+      // Auto-save as draft if date is future or uncommitted
+      const todayStr = getTodayDateStrLocal()
+      const isFutureDate = viewingDateStr > todayStr
+      const isTodayUncommitted = viewingDateStr === todayStr && !committed
+      
+      if (isFutureDate || isTodayUncommitted) {
+        const { saveDraftBlocks } = useScheduleStore.getState()
+        saveDraftBlocks(viewingDateStr, updatedBlocks)
+      }
+    }
+    
     // Only save to history if this is a meaningful change (not just dragging)
-    const block = blocks.find((b) => b.id === id)
-    if (block && updates.identity && updates.identity !== block.identity) {
+    if (updates.identity && updates.identity !== block.identity) {
       // Title change - save to history
       saveToHistory(blocks)
     }
-    setBlocks(blocks.map((b) => (b.id === id ? { ...b, ...updates } : b)))
   }
 
   const handleDeleteBlock = (id: string) => {
@@ -489,7 +588,21 @@ export function TodayTab() {
     }
     
     saveToHistory(blocks)
-    setBlocks(blocks.filter((b) => b.id !== id))
+    const updatedBlocks = blocks.filter((b) => b.id !== id)
+    setBlocks(updatedBlocks)
+    
+    // Auto-save as draft if date is future or uncommitted
+    if (!committed) {
+      const todayStr = getTodayDateStrLocal()
+      const isFutureDate = viewingDateStr > todayStr
+      const isTodayUncommitted = viewingDateStr === todayStr && !committed
+      
+      if (isFutureDate || isTodayUncommitted) {
+        const { saveDraftBlocks } = useScheduleStore.getState()
+        saveDraftBlocks(viewingDateStr, updatedBlocks)
+      }
+    }
+    
     addToast("Block deleted")
   }
 
